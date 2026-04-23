@@ -1,0 +1,88 @@
+/* Leaflet core CSS overrides */
+.leaflet-container {
+  background-color: #E8F3FF;
+  font-family: 'Inter', system-ui, sans-serif;
+  border-radius: 16px;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 14px !important;
+  box-shadow: 0 8px 24px rgba(0, 82, 204, 0.18) !important;
+  border: 1.5px solid #0052CC;
+  padding: 0;
+  overflow: hidden;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  width: 240px !important;
+}
+
+.leaflet-popup-tip-container {
+  margin-top: -1px;
+}
+
+.leaflet-popup-tip {
+  background: #0052CC !important;
+  box-shadow: none !important;
+}
+
+.leaflet-popup-close-button {
+  color: #6B7280 !important;
+  font-size: 18px !important;
+  top: 8px !important;
+  right: 8px !important;
+  width: 24px !important;
+  height: 24px !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  background: #F3F4F6 !important;
+  border-radius: 50% !important;
+}
+
+.leaflet-popup-close-button:hover {
+  color: #1F2937 !important;
+  background: #E5E7EB !important;
+}
+
+/* Cluster markers */
+.marker-cluster-small,
+.marker-cluster-medium,
+.marker-cluster-large {
+  background-color: rgba(0, 82, 204, 0.15) !important;
+}
+
+.marker-cluster-small div,
+.marker-cluster-medium div,
+.marker-cluster-large div {
+  background-color: rgba(0, 82, 204, 0.8) !important;
+  color: white !important;
+  font-weight: 700 !important;
+  font-family: 'Inter', system-ui, sans-serif !important;
+}
+
+/* Controls */
+.leaflet-control-zoom {
+  border: none !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+}
+
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out {
+  background: white !important;
+  color: #1F2937 !important;
+  border: none !important;
+  font-size: 16px !important;
+  line-height: 28px !important;
+  width: 32px !important;
+  height: 32px !important;
+}
+
+.leaflet-control-zoom-in:hover,
+.leaflet-control-zoom-out:hover {
+  background: #E8F3FF !important;
+  color: #0052CC !important;
+}
