@@ -11,13 +11,21 @@ create table public.users (
     bio text,
     skill_level text check (
         skill_level in (
-            'weak_minus',
-            'weak_plus',
-            'medium_plus',
-            'medium_advanced_plus',
-            'advanced_minus',
-            'advanced_plus',
-            'expert_plus'
+            'yeu_minus',
+            'yeu',
+            'yeu_plus',
+            'tby_minus',
+            'tby',
+            'tby_plus',
+            'tb_minus',
+            'tb',
+            'tb_plus',
+            'kha_minus',
+            'kha',
+            'kha_plus',
+            'gioi_minus',
+            'gioi',
+            'gioi_plus'
         )
     ),
     created_at timestamptz not null default now(),
@@ -46,6 +54,10 @@ create table public.events (
         )
     ),
     token_cost int not null default 0,
+    price_min int check (price_min is null or price_min >= 0),
+    price_max int check (price_max is null or price_max >= 0),
+    split_evenly boolean not null default false,
+    check (price_min is null or price_max is null or price_min <= price_max),
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now()
 );
@@ -56,13 +68,21 @@ create table public.event_skill_requirements (
     event_id uuid not null references public.events (id) on delete cascade,
     skill_level text not null check (
         skill_level in (
-            'weak_minus',
-            'weak_plus',
-            'medium_plus',
-            'medium_advanced_plus',
-            'advanced_minus',
-            'advanced_plus',
-            'expert_plus'
+            'yeu_minus',
+            'yeu',
+            'yeu_plus',
+            'tby_minus',
+            'tby',
+            'tby_plus',
+            'tb_minus',
+            'tb',
+            'tb_plus',
+            'kha_minus',
+            'kha',
+            'kha_plus',
+            'gioi_minus',
+            'gioi',
+            'gioi_plus'
         )
     ),
     slots_needed int not null check (slots_needed > 0),
@@ -76,13 +96,21 @@ create table public.bookings (
     member_id uuid not null references public.users (id) on delete cascade,
     skill_level text not null check (
         skill_level in (
-            'weak_minus',
-            'weak_plus',
-            'medium_plus',
-            'medium_advanced_plus',
-            'advanced_minus',
-            'advanced_plus',
-            'expert_plus'
+            'yeu_minus',
+            'yeu',
+            'yeu_plus',
+            'tby_minus',
+            'tby',
+            'tby_plus',
+            'tb_minus',
+            'tb',
+            'tb_plus',
+            'kha_minus',
+            'kha',
+            'kha_plus',
+            'gioi_minus',
+            'gioi',
+            'gioi_plus'
         )
     ),
     status text not null default 'booked' check (
