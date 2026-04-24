@@ -42,7 +42,9 @@ export default function CourtLocationWidget({
 }: Readonly<CourtLocationWidgetProps>) {
   const hasCoordinates =
     typeof latitude === "number" && typeof longitude === "number";
-  const coords = hasCoordinates ? ([latitude, longitude] as [number, number]) : null;
+  const coords = hasCoordinates
+    ? ([latitude, longitude] as [number, number])
+    : null;
 
   const mapHref = hasCoordinates
     ? `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`
@@ -53,7 +55,9 @@ export default function CourtLocationWidget({
       <div className="px-4 py-3 border-b border-[#F3F4F6] flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <MapPinned size={15} className="text-[#0052CC]" />
-          <h3 className="text-sm font-semibold text-[#1F2937]">Thông tin sân</h3>
+          <h3 className="text-sm font-semibold text-[#1F2937]">
+            Thông tin sân
+          </h3>
         </div>
         <Link
           href={mapHref}
@@ -104,7 +108,8 @@ export default function CourtLocationWidget({
       ) : (
         <div className="h-28 border-t border-[#F3F4F6] bg-[#F9FAFB] flex items-center justify-center px-4 text-center">
           <p className="text-xs text-[#6B7280]">
-            Chưa có tọa độ chính xác cho sân này. Bạn vẫn có thể bấm "Chỉ đường" để mở bản đồ.
+            Chưa có tọa độ chính xác cho sân này. Bạn vẫn có thể bấm "Chỉ đường"
+            để mở bản đồ.
           </p>
         </div>
       )}

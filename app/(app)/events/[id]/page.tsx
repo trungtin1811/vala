@@ -58,8 +58,8 @@ export default function EventDetailPage({
   const isHost = user?.id === event?.host_id;
   const myBooking = myBookings?.find((b) => b.event_id === id);
   const hasBooked = !!myBooking;
-  const isApproved = myBooking?.approval_status === 'approved';
-  const isPendingApproval = myBooking?.approval_status === 'pending';
+  const isApproved = myBooking?.approval_status === "approved";
+  const isPendingApproval = myBooking?.approval_status === "pending";
 
   async function handleBook() {
     if (!user || !event || !selectedLevel) return;
@@ -282,7 +282,9 @@ export default function EventDetailPage({
           {hasBooked && (
             <div className="bg-[#E8F3FF] border border-[#0052CC]/20 rounded-xl p-4 text-center">
               <p className="text-sm font-semibold text-[#0052CC]">
-                {isPendingApproval ? '⌛ Yêu cầu tham gia đang chờ host duyệt' : '✓ Bạn đã được duyệt tham gia vãng lai này'}
+                {isPendingApproval
+                  ? "⌛ Yêu cầu tham gia đang chờ host duyệt"
+                  : "✓ Bạn đã được duyệt tham gia vãng lai này"}
               </p>
               {isApproved && event.host?.phone && (
                 <p className="text-sm text-[#0052CC] mt-1">

@@ -132,7 +132,7 @@ export default function HomePage() {
   const myBookingForEvent = bookingEvent
     ? myBookings?.find((b) => b.event_id === bookingEvent.id)
     : undefined;
-  const pendingApproval = myBookingForEvent?.approval_status === 'pending';
+  const pendingApproval = myBookingForEvent?.approval_status === "pending";
   const availableSlots = bookingEvent
     ? bookingEvent.total_slots - bookingEvent.booked_slots
     : 0;
@@ -282,7 +282,9 @@ export default function HomePage() {
             {hasBooked ? (
               <div className="bg-[#E8F3FF] border border-[#0052CC]/20 rounded-xl p-4 text-center">
                 <p className="text-sm font-semibold text-[#0052CC]">
-                  {pendingApproval ? '⌛ Yêu cầu tham gia đang chờ host duyệt' : '✓ Bạn đã được duyệt tham gia vãng lai này'}
+                  {pendingApproval
+                    ? "⌛ Yêu cầu tham gia đang chờ host duyệt"
+                    : "✓ Bạn đã được duyệt tham gia vãng lai này"}
                 </p>
                 {!pendingApproval && bookingEvent.host?.phone && (
                   <p className="text-sm text-[#0052CC] mt-1">
