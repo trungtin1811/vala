@@ -1,16 +1,16 @@
 "use client";
 
+import { DEFAULT_CENTER, DEFAULT_ZOOM } from "@/lib/mapIcons";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import { useEffect, useRef } from "react";
 import {
   MapContainer,
-  TileLayer,
   Marker,
-  useMapEvents,
+  TileLayer,
   useMap,
+  useMapEvents,
 } from "react-leaflet";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-import { DEFAULT_CENTER, DEFAULT_ZOOM } from "@/lib/mapIcons";
 
 function AutoLocate() {
   const map = useMap();
@@ -20,7 +20,7 @@ function AutoLocate() {
     done.current = true;
     navigator.geolocation?.getCurrentPosition(
       (pos) =>
-        map.flyTo([pos.coords.latitude, pos.coords.longitude], 15, {
+        map.setView([pos.coords.latitude, pos.coords.longitude], 15, {
           duration: 0.8,
         }),
       () => {},
@@ -60,7 +60,7 @@ function FlyTo({ lat, lng }: { lat: number; lng: number }) {
     const key = `${lat},${lng}`;
     if (key !== prev.current) {
       prev.current = key;
-      map.flyTo([lat, lng], 16, { duration: 0.6 });
+      map.setView([lat, lng], 16, { duration: 0.6 });
     }
   }, [lat, lng, map]);
   return null;

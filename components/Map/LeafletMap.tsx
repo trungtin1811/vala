@@ -47,11 +47,12 @@ function FlyToSelected({
   events: Event[];
 }) {
   const map = useMap();
+
   useEffect(() => {
     if (!eventId) return;
     const ev = events.find((e) => e.id === eventId);
     if (ev && Number.isFinite(ev.latitude) && Number.isFinite(ev.longitude)) {
-      map.flyTo([ev.latitude!, ev.longitude!], 15, { duration: 0.8 });
+      map.setView([ev.latitude!, ev.longitude!], 15, { duration: 0.8 });
     }
   }, [eventId, events, map]);
   return null;
@@ -63,6 +64,7 @@ function FlyToUser({
   location?: { lat: number; lng: number } | null;
 }) {
   const map = useMap();
+
   useEffect(() => {
     if (!map) return;
     if (!location) return;
@@ -71,7 +73,7 @@ function FlyToUser({
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
     map.whenReady(() => {
-      // map.flyTo([lat, lng], 14, { duration: 1 });
+      map.setView([lat, lng], 14, { duration: 0.8 });
     });
   }, [location, map]);
   return null;
@@ -169,16 +171,8 @@ export default function LeafletMap({
             const color = primaryLevel
               ? SKILL_MARKER_COLORS[primaryLevel]
               : "#0052CC";
-            const totalSlots =
-              event.skill_requirements?.reduce(
-                (s, r) => s + r.slots_needed,
-                0,
-              ) ?? 0;
-            const filledSlots =
-              event.skill_requirements?.reduce(
-                (s, r) => s + r.slots_booked,
-                0,
-              ) ?? 0;
+            const totalSlots = event.total_slots;
+            const filledSlots = event.booked_slots;
             const available = totalSlots - filledSlots;
 
             const icon = L.icon({

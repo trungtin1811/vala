@@ -35,13 +35,15 @@ export default function EditEventPage({
     title: event.title,
     description: event.description ?? "",
     location: event.location,
+    court_id: event.court_id,
+    court_address: event.court_address ?? "",
     latitude: event.latitude,
     longitude: event.longitude,
     event_date: event.event_date,
     event_time: event.event_time,
     event_end_time: event.event_end_time ?? "",
     skill_levels: event.skill_requirements?.map((r) => r.skill_level) ?? [],
-    total_slots: event.skill_requirements?.[0]?.slots_needed ?? 4,
+    total_slots: event.total_slots ?? 4,
     price_enabled: event.price_min != null || event.price_max != null,
     price_min: event.price_min,
     price_max: event.price_max,
@@ -58,6 +60,8 @@ export default function EditEventPage({
           title: values.title,
           description: values.description || null,
           location: values.location,
+          court_id: values.court_id,
+          court_address: values.court_address || null,
           latitude: values.latitude,
           longitude: values.longitude,
           event_date: values.event_date,
@@ -68,6 +72,7 @@ export default function EditEventPage({
             values.event_time,
             values.event_end_time,
           ),
+          total_slots: values.total_slots,
           price_min: values.price_enabled ? (values.price_min ?? null) : null,
           price_max: values.price_enabled ? (values.price_max ?? null) : null,
           split_evenly: values.price_enabled ? values.split_evenly : false,
@@ -84,8 +89,6 @@ export default function EditEventPage({
       const requirements = values.skill_levels.map((level) => ({
         event_id: id,
         skill_level: level,
-        slots_needed: values.total_slots,
-        slots_booked: 0,
       }));
       const { error: reqError } = await supabase
         .from("event_skill_requirements")

@@ -100,14 +100,8 @@ export default function HomePage() {
         return (distances[a.id] ?? Infinity) - (distances[b.id] ?? Infinity);
       }
       if (filters.sortBy === "slots") {
-        const aSlots = (a.skill_requirements ?? []).reduce(
-          (s, r) => s + r.slots_needed - r.slots_booked,
-          0,
-        );
-        const bSlots = (b.skill_requirements ?? []).reduce(
-          (s, r) => s + r.slots_needed - r.slots_booked,
-          0,
-        );
+        const aSlots = a.total_slots - a.booked_slots;
+        const bSlots = b.total_slots - b.booked_slots;
         return bSlots - aSlots;
       }
       return (
@@ -135,10 +129,14 @@ export default function HomePage() {
   const hasBooked = bookingEvent
     ? myBookings?.some((b) => b.event_id === bookingEvent.id)
     : false;
-  const availableRequirements =
-    bookingEvent?.skill_requirements?.filter(
-      (r) => r.slots_booked < r.slots_needed,
-    ) ?? [];
+  const myBookingForEvent = bookingEvent
+    ? myBookings?.find((b) => b.event_id === bookingEvent.id)
+    : undefined;
+  const pendingApproval = myBookingForEvent?.approval_status === 'pending';
+  const availableSlots = bookingEvent
+    ? bookingEvent.total_slots - bookingEvent.booked_slots
+    : 0;
+  const availableRequirements = bookingEvent?.skill_requirements ?? [];
 
   async function confirmBooking() {
     if (!user || !bookingEvent || !selectedSkillLevel) return;
@@ -284,15 +282,15 @@ export default function HomePage() {
             {hasBooked ? (
               <div className="bg-[#E8F3FF] border border-[#0052CC]/20 rounded-xl p-4 text-center">
                 <p className="text-sm font-semibold text-[#0052CC]">
-                  ✓ Bạn đã đăng ký vãng lai này
+                  {pendingApproval ? '⌛ Yêu cầu tham gia đang chờ host duyệt' : '✓ Bạn đã được duyệt tham gia vãng lai này'}
                 </p>
-                {bookingEvent.host?.phone && (
+                {!pendingApproval && bookingEvent.host?.phone && (
                   <p className="text-sm text-[#0052CC] mt-1">
                     Liên hệ host: <strong>{bookingEvent.host.phone}</strong>
                   </p>
                 )}
               </div>
-            ) : availableRequirements.length === 0 ? (
+            ) : availableSlots <= 0 ? (
               <p className="text-sm text-[#6B7280]">Hết chỗ rồi!</p>
             ) : !user ? (
               <p className="text-sm text-[#6B7280]">
@@ -313,12 +311,12 @@ export default function HomePage() {
                       }`}
                     >
                       <SkillLevelBadge level={req.skill_level} />
-                      <span className="text-sm text-[#6B7280]">
-                        Còn {req.slots_needed - req.slots_booked} chỗ
-                      </span>
                     </button>
                   ))}
                 </div>
+                <p className="text-sm text-[#6B7280] text-center">
+                  Còn {availableSlots} chỗ
+                </p>
                 <Button
                   className="w-full"
                   onClick={confirmBooking}

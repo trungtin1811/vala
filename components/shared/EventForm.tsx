@@ -24,6 +24,8 @@ export interface EventFormValues {
   title: string;
   description: string;
   location: string;
+  court_id: string | null;
+  court_address: string;
   latitude: number | null;
   longitude: number | null;
   event_date: string;
@@ -137,6 +139,8 @@ export function EventForm({
       title: "",
       description: "",
       location: "",
+      court_id: null,
+      court_address: "",
       latitude: null,
       longitude: null,
       event_date: "",
@@ -281,6 +285,8 @@ export function EventForm({
                   longitude={longitude}
                   onChange={(vals) => {
                     setValue("location", vals.location);
+                    setValue("court_id", vals.court_id);
+                    setValue("court_address", vals.court_address ?? "");
                     setValue("latitude", vals.latitude);
                     setValue("longitude", vals.longitude);
                   }}

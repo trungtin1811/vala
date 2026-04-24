@@ -2,9 +2,9 @@
 
 import { use, useState } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, Shuffle, Pencil, Trash2, Phone } from 'lucide-react'
+import { ChevronLeft, Shuffle, Pencil, Trash2, Phone, CheckCircle2, XCircle, Wallet } from 'lucide-react'
 import { useEvent } from '@/hooks/useEvents'
-import { useEventBookings, useCancelBooking } from '@/hooks/useBookings'
+import { useEventBookings, useCancelBooking, useApproveBooking, useRejectBooking, useToggleBookingPaid } from '@/hooks/useBookings'
 import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
@@ -24,7 +24,7 @@ function shuffleArray<T>(arr: T[]): T[] {
 }
 
 function generateTeams(bookings: Booking[], numCourts: number) {
-  const shuffled = shuffleArray(bookings)
+  const shuffled = shuffleArray(bookings.filter((b) => b.approval_status === 'approved'))
   const teams: Booking[][] = Array.from({ length: numCourts }, () => [])
   shuffled.forEach((b, i) => teams[i % numCourts].push(b))
   return teams
@@ -35,8 +35,11 @@ export default function ManageEventPage({ params }: { params: Promise<{ id: stri
   const { user } = useAuth()
   const qc = useQueryClient()
   const { data: event, isLoading } = useEvent(id)
-  const { data: bookings } = useEventBookings(id)
+  const { data: bookings } = useEventBookings(id, true)
   const cancelBooking = useCancelBooking()
+  const approveBooking = useApproveBooking()
+  const rejectBooking = useRejectBooking()
+  const togglePaid = useToggleBookingPaid()
 
   const [teamsModal, setTeamsModal] = useState(false)
   const [numCourts, setNumCourts] = useState(2)
@@ -61,6 +64,8 @@ export default function ManageEventPage({ params }: { params: Promise<{ id: stri
   }
 
   const teamColors = ['bg-blue-50 border-blue-200', 'bg-emerald-50 border-emerald-200', 'bg-amber-50 border-amber-200', 'bg-purple-50 border-purple-200', 'bg-red-50 border-red-200']
+  const approvedBookings = bookings?.filter((b) => b.approval_status === 'approved') ?? []
+  const pendingBookings = bookings?.filter((b) => b.approval_status === 'pending') ?? []
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
@@ -100,13 +105,22 @@ export default function ManageEventPage({ params }: { params: Promise<{ id: stri
 
       <div className="bg-white border border-[#E5E7EB] rounded-2xl">
         <div className="flex items-center justify-between p-4 border-b border-[#F3F4F6]">
-          <h2 className="font-semibold text-[#1F2937]">Danh Sách Thành Viên ({bookings?.length ?? 0})</h2>
-          {bookings && bookings.length >= 2 && (
+          <h2 className="font-semibold text-[#1F2937]">Danh Sách Thành Viên ({approvedBookings.length} đã duyệt / {pendingBookings.length} chờ duyệt)</h2>
+          {approvedBookings.length >= 2 && (
             <Button size="sm" onClick={() => { handleGenerateTeams(); setTeamsModal(true) }}>
               <Shuffle size={14} /> Chia Sân
             </Button>
           )}
         </div>
+
+        {(approveBooking.isError || rejectBooking.isError || togglePaid.isError) && (
+          <div className="px-4 py-2 text-xs text-[#EF4444] bg-red-50 border-b border-red-100">
+            {(approveBooking.error as Error | null)?.message ||
+              (rejectBooking.error as Error | null)?.message ||
+              (togglePaid.error as Error | null)?.message ||
+              'Có lỗi xảy ra khi cập nhật trạng thái thành viên.'}
+          </div>
+        )}
 
         {!bookings || bookings.length === 0 ? (
           <div className="py-12 text-center text-[#9CA3AF] text-sm">Chưa có thành viên nào đăng ký</div>
@@ -128,10 +142,44 @@ export default function ManageEventPage({ params }: { params: Promise<{ id: stri
                       <Phone size={10} />{booking.member.phone}
                     </p>
                   )}
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className={`text-[11px] px-2 py-0.5 rounded-full ${booking.approval_status === 'approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                      {booking.approval_status === 'approved' ? 'Đã duyệt' : 'Chờ duyệt'}
+                    </span>
+                    <span className={`text-[11px] px-2 py-0.5 rounded-full ${booking.is_paid ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
+                      {booking.is_paid ? 'Đã đóng tiền' : 'Chưa đóng tiền'}
+                    </span>
+                  </div>
                 </div>
                 <SkillLevelBadge level={booking.skill_level} />
+                {booking.approval_status === 'pending' ? (
+                  <>
+                    <button
+                      onClick={() => approveBooking.mutate({ bookingId: booking.id, eventId: id, skillLevel: booking.skill_level })}
+                      className="text-emerald-600 hover:text-emerald-700 transition-colors p-1 ml-1"
+                      title="Duyệt thành viên"
+                    >
+                      <CheckCircle2 size={16} />
+                    </button>
+                    <button
+                      onClick={() => rejectBooking.mutate({ bookingId: booking.id, eventId: id, skillLevel: booking.skill_level, approvalStatus: booking.approval_status })}
+                      className="text-amber-600 hover:text-amber-700 transition-colors p-1"
+                      title="Từ chối"
+                    >
+                      <XCircle size={16} />
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => togglePaid.mutate({ bookingId: booking.id, isPaid: booking.is_paid })}
+                    className={`transition-colors p-1 ml-1 ${booking.is_paid ? 'text-blue-600 hover:text-blue-700' : 'text-slate-500 hover:text-slate-700'}`}
+                    title={booking.is_paid ? 'Bỏ đánh dấu đã đóng tiền' : 'Đánh dấu đã đóng tiền'}
+                  >
+                    <Wallet size={16} />
+                  </button>
+                )}
                 <button
-                  onClick={() => cancelBooking.mutate({ bookingId: booking.id, eventId: id, skillLevel: booking.skill_level })}
+                  onClick={() => cancelBooking.mutate({ bookingId: booking.id, eventId: id, skillLevel: booking.skill_level, approvalStatus: booking.approval_status })}
                   className="text-[#9CA3AF] hover:text-[#EF4444] transition-colors p-1 ml-1"
                   title="Xoá thành viên"
                 >
@@ -146,8 +194,9 @@ export default function ManageEventPage({ params }: { params: Promise<{ id: stri
       <Modal open={teamsModal} onClose={() => setTeamsModal(false)} title="Chia Sân Ngẫu Nhiên" className="max-w-2xl">
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-3">
-            <label className="text-sm font-medium text-[#1F2937]">Số sân:</label>
+            <label htmlFor="num-courts" className="text-sm font-medium text-[#1F2937]">Số sân:</label>
             <input
+              id="num-courts"
               type="number"
               min={2}
               max={10}
@@ -162,7 +211,7 @@ export default function ManageEventPage({ params }: { params: Promise<{ id: stri
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {teams.map((team, i) => (
-              <div key={i} className={`rounded-xl border p-3 ${teamColors[i % teamColors.length]}`}>
+              <div key={`team-${i + 1}-${team.map((m) => m.id).join('-')}`} className={`rounded-xl border p-3 ${teamColors[i % teamColors.length]}`}>
                 <p className="text-xs font-bold uppercase tracking-wide mb-2 text-[#1F2937]">Sân {i + 1}</p>
                 <div className="flex flex-col gap-2">
                   {team.map(b => (
