@@ -51,35 +51,26 @@ export default function CourtLocationWidget({
     : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
 
   return (
-    <div className="rounded-2xl border border-[#E5E7EB] overflow-hidden bg-white">
-      <div className="px-4 py-3 border-b border-[#F3F4F6] flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <MapPinned size={15} className="text-[#0052CC]" />
-          <h3 className="text-sm font-semibold text-[#1F2937]">
-            Thông tin sân
-          </h3>
-        </div>
-        <Link
-          href={mapHref}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-1 text-xs font-medium text-[#0052CC] hover:underline"
-        >
-          Chỉ đường <ExternalLink size={12} />
-        </Link>
-      </div>
+    <div>
+
 
       <div className="px-4 py-3">
         <p className="text-xs text-[#6B7280]">Tên sân</p>
         <p className="text-sm font-medium text-[#1F2937] mt-0.5">{location}</p>
         <p className="text-xs text-[#6B7280] mt-2">Địa chỉ</p>
-        <p className="text-sm text-[#1F2937] mt-0.5">
-          {courtAddress?.trim() ? courtAddress : "Chưa có địa chỉ chi tiết"}
-        </p>
+        <Link
+          href={mapHref}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 text-sm mt-0.5 text-[#0052CC] hover:underline"
+        >
+          {courtAddress?.trim() ? <>{courtAddress} <ExternalLink size={12} /></> : "Chưa có địa chỉ chi tiết"}
+
+        </Link>
       </div>
 
       {coords ? (
-        <div className="h-52 border-t border-[#F3F4F6]">
+        <div className="h-52 border-t border-[#F3F4F6] p-4">
           <MapContainer
             center={coords}
             zoom={16}

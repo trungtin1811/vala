@@ -58,7 +58,7 @@ export function DatePicker({ value, onChange, error, label, id, disablePast = tr
         type="button"
         onClick={() => setOpen(v => !v)}
         className={`w-full flex items-center gap-2 border bg-white text-left transition-colors focus:outline-none focus:ring-2 focus:ring-[#0052CC]/20 ${
-          compact ? 'px-2.5 py-1.5 rounded-lg text-xs' : 'px-3 py-2.5 rounded-xl text-sm'
+          compact ? 'h-[42px] px-3 rounded-xl text-sm' : 'px-3 py-2.5 rounded-xl text-sm'
         } ${
           error ? 'border-[#EF4444]' : open ? 'border-[#0052CC]' : 'border-[#E5E7EB] hover:border-[#9CA3AF]'
         }`}

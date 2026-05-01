@@ -4,15 +4,42 @@ import { useState } from "react";
 import { useEvents } from "@/hooks/useEvents";
 import { EventCard } from "@/components/shared/EventCard";
 import { EventCardSkeleton } from "@/components/shared/EventCardSkeleton";
-import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { SKILL_LEVELS, SKILL_LEVEL_LABELS, type SkillLevel } from "@/types";
+import { DatePicker } from "@/components/ui/DatePicker";
+import {
+  SKILL_LEVELS,
+  SKILL_LEVEL_LABELS,
+  type EventStatus,
+  type SkillLevel,
+} from "@/types";
 import { Search } from "lucide-react";
+
+const EVENT_STATUS_OPTIONS: Array<{
+  value: EventStatus;
+  label: string;
+}> = [
+  { value: "active", label: "Đang tuyển" },
+  { value: "closed", label: "Đã đủ người" },
+  { value: "completed", label: "Hoàn thành" },
+  { value: "cancelled", label: "Đã huỷ" },
+];
+const STATUS_FILTER_OPTIONS = [
+  { value: "all", label: "Mọi trạng thái" },
+  ...EVENT_STATUS_OPTIONS,
+];
+const SKILL_FILTER_OPTIONS = [
+  { value: "all", label: "Mọi trình độ" },
+  ...SKILL_LEVELS.map((level) => ({
+    value: level,
+    label: SKILL_LEVEL_LABELS[level],
+  })),
+];
 
 export default function EventsPage() {
   const [location, setLocation] = useState("");
   const [date, setDate] = useState("");
   const [skillLevel, setSkillLevel] = useState<SkillLevel | "">("");
+  const [status, setStatus] = useState<EventStatus | "">("");
 
   const {
     data: events,
@@ -21,6 +48,7 @@ export default function EventsPage() {
   } = useEvents({
     location: location || undefined,
     date: date || undefined,
+    status: status || undefined,
   });
 
   const filtered = skillLevel
@@ -54,24 +82,31 @@ export default function EventsPage() {
             className="w-full pl-9 pr-3 py-2.5 border border-[#E5E7EB] rounded-xl text-sm focus:outline-none focus:border-[#0052CC] focus:ring-2 focus:ring-[#0052CC]/20 bg-white"
           />
         </div>
-        <input
-          type="date"
+        <DatePicker
           value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="px-3 py-2.5 border border-[#E5E7EB] rounded-xl text-sm focus:outline-none focus:border-[#0052CC] focus:ring-2 focus:ring-[#0052CC]/20 bg-white"
+          onChange={setDate}
+          disablePast={false}
+          placeholder="dd/mm/yyyy"
+          compact
         />
-        <select
-          value={skillLevel}
-          onChange={(e) => setSkillLevel(e.target.value as SkillLevel | "")}
-          className="px-3 py-2.5 border border-[#E5E7EB] rounded-xl text-sm focus:outline-none focus:border-[#0052CC] focus:ring-2 focus:ring-[#0052CC]/20 bg-white cursor-pointer"
-        >
-          <option value="">Mọi trình độ</option>
-          {SKILL_LEVELS.map((l) => (
-            <option key={l} value={l}>
-              {SKILL_LEVEL_LABELS[l]}
-            </option>
-          ))}
-        </select>
+        <div className="sm:w-[180px]">
+          <Select
+            value={status || "all"}
+            onValueChange={(value) =>
+              setStatus(value === "all" ? "" : (value as EventStatus))
+            }
+            options={STATUS_FILTER_OPTIONS}
+          />
+        </div>
+        <div className="sm:w-[170px]">
+          <Select
+            value={skillLevel || "all"}
+            onValueChange={(value) =>
+              setSkillLevel(value === "all" ? "" : (value as SkillLevel))
+            }
+            options={SKILL_FILTER_OPTIONS}
+          />
+        </div>
       </div>
 
       {error && (

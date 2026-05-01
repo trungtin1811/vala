@@ -12,6 +12,14 @@ import { SkillLevelBadge } from "@/components/shared/SkillLevelBadge";
 import { SKILL_LEVELS, SKILL_LEVEL_LABELS, type SkillLevel } from "@/types";
 import { useQueryClient } from "@tanstack/react-query";
 
+const SKILL_LEVEL_OPTIONS = [
+  { value: "none", label: "Chưa chọn" },
+  ...SKILL_LEVELS.map((level) => ({
+    value: level,
+    label: SKILL_LEVEL_LABELS[level],
+  })),
+];
+
 export default function MyProfilePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -111,18 +119,12 @@ export default function MyProfilePage() {
         <Select
           label="Trình độ cầu lông"
           id="skill_level"
-          value={form.skill_level}
-          onChange={(e) =>
-            setForm((f) => ({ ...f, skill_level: e.target.value }))
+          value={form.skill_level || "none"}
+          onValueChange={(value) =>
+            setForm((f) => ({ ...f, skill_level: value === "none" ? "" : value }))
           }
-        >
-          <option value="">Chưa chọn</option>
-          {SKILL_LEVELS.map((l) => (
-            <option key={l} value={l}>
-              {SKILL_LEVEL_LABELS[l]}
-            </option>
-          ))}
-        </Select>
+          options={SKILL_LEVEL_OPTIONS}
+        />
         <Textarea
           label="Giới thiệu bản thân"
           id="bio"

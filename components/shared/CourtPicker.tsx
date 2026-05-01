@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
+import { Select } from "@/components/ui/Select";
 import { useCourts, useCreateCourt } from "@/hooks/useCourts";
 import { geocodeAddress, reverseGeocode } from "@/lib/geocoding";
 import type { Court } from "@/types";
@@ -80,31 +81,24 @@ function SelectField({
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-sm font-medium text-[#1F2937]">{label}</label>
-      <div className="relative">
-        <select
-          value={value ?? ""}
-          disabled={disabled || loading}
-          onChange={(e) => {
-            const opt = options.find((o) => o.code === Number(e.target.value));
-            if (opt) onChange(opt.code, opt.name);
-          }}
-          className="w-full appearance-none px-3 py-2.5 pr-8 border border-[#E5E7EB] rounded-xl text-sm bg-white focus:outline-none focus:border-[#0052CC] focus:ring-2 focus:ring-[#0052CC]/20 disabled:bg-[#F3F4F6] disabled:text-[#9CA3AF] disabled:cursor-not-allowed"
-        >
-          <option value="">{loading ? "Đang tải…" : placeholder}</option>
-          {options.map((o) => (
-            <option key={o.code} value={o.code}>
-              {o.name}
-            </option>
-          ))}
-        </select>
-        <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF]">
-          {loading ? (
-            <Loader2 size={13} className="animate-spin" />
-          ) : (
-            <ChevronDown size={13} />
-          )}
-        </span>
-      </div>
+      <Select
+        value={value ? String(value) : "none"}
+        onValueChange={(selectedValue) => {
+          if (selectedValue === "none") {
+            return;
+          }
+          const opt = options.find((o) => o.code === Number(selectedValue));
+          if (opt) onChange(opt.code, opt.name);
+        }}
+        options={[
+          { value: "none", label: loading ? "Đang tải…" : placeholder },
+          ...options.map((o) => ({
+            value: String(o.code),
+            label: o.name,
+          })),
+        ]}
+        disabled={disabled || loading}
+      />
     </div>
   );
 }

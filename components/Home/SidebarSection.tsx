@@ -4,6 +4,7 @@ import { Search, Plus, ArrowUpDown, MapPin } from 'lucide-react'
 import { FilterPanel } from './FilterPanel'
 import { EventListCompact } from './EventListCompact'
 import { Button } from '@/components/ui/Button'
+import { Select } from '@/components/ui/Select'
 import Link from 'next/link'
 import type { Event, FilterState } from '@/types'
 
@@ -76,17 +77,21 @@ export function SidebarSection({
                 <MapPin size={11} /> Định vị
               </button>
             )}
-            <select
-              value={filters.sortBy}
-              onChange={e => onFilterChange({ ...filters, sortBy: e.target.value as FilterState['sortBy'] })}
-              className="text-xs border border-[#E5E7EB] rounded-lg px-2 py-1 bg-white focus:outline-none focus:border-[#0052CC] cursor-pointer"
-            >
-              {(Object.keys(SORT_LABELS) as FilterState['sortBy'][]).map(k => (
-                <option key={k} value={k} disabled={k === 'distance' && !hasLocation}>
-                  {SORT_LABELS[k]}
-                </option>
-              ))}
-            </select>
+            <div className="w-[140px]">
+              <Select
+                value={filters.sortBy}
+                onValueChange={(value) =>
+                  onFilterChange({ ...filters, sortBy: value as FilterState['sortBy'] })
+                }
+                options={(Object.keys(SORT_LABELS) as FilterState['sortBy'][])
+                  .filter((key) => !(key === 'distance' && !hasLocation))
+                  .map((key) => ({
+                    value: key,
+                    label: SORT_LABELS[key],
+                  }))}
+                className="h-8 rounded-lg px-2 text-xs"
+              />
+            </div>
           </div>
         </div>
       </div>

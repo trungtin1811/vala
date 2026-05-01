@@ -4,6 +4,7 @@ import { useRef, useEffect, useState } from 'react'
 import { SKILL_LEVELS, SKILL_LEVEL_LABELS, type FilterState } from '@/types'
 import { SlidersHorizontal, X } from 'lucide-react'
 import { DatePicker } from '@/components/ui/DatePicker'
+import { Select } from '@/components/ui/Select'
 
 interface FilterPanelProps {
   filters: FilterState
@@ -50,14 +51,26 @@ export function FilterPanel({ filters, onChange, hasLocation }: FilterPanelProps
           {/* Skill level */}
           <div>
             <label className="block text-xs font-medium text-[#6B7280] mb-1.5">Trình độ</label>
-            <select
-              value={filters.skillLevel ?? ''}
-              onChange={e => onChange({ ...filters, skillLevel: e.target.value as any || undefined })}
-              className="w-full text-sm border border-[#E5E7EB] rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:border-[#0052CC]"
-            >
-              <option value="">Tất cả</option>
-              {SKILL_LEVELS.map(l => <option key={l} value={l}>{SKILL_LEVEL_LABELS[l]}</option>)}
-            </select>
+            <Select
+              value={filters.skillLevel ?? 'all'}
+              onValueChange={(value) =>
+                onChange({
+                  ...filters,
+                  skillLevel:
+                    value === 'all'
+                      ? undefined
+                      : SKILL_LEVELS.find((level) => level === value),
+                })
+              }
+              options={[
+                { value: 'all', label: 'Tất cả' },
+                ...SKILL_LEVELS.map((level) => ({
+                  value: level,
+                  label: SKILL_LEVEL_LABELS[level],
+                })),
+              ]}
+              className="h-9 rounded-lg px-2.5 text-sm"
+            />
           </div>
 
           {/* Date range */}

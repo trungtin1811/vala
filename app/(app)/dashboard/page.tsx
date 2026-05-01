@@ -18,10 +18,11 @@ const TABS = [
 ] as const
 type TabKey = typeof TABS[number]['key']
 
-function EventGrid({ loading, events, emptyMsg }: {
+function EventGrid({ loading, events, emptyMsg, showManageAction }: {
   loading: boolean
   events: Event[] | undefined
   emptyMsg: string
+  showManageAction?: boolean
 }) {
   if (loading) return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -35,7 +36,13 @@ function EventGrid({ loading, events, emptyMsg }: {
   )
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {events.map(event => <EventCard key={event.id} event={event} />)}
+      {events.map(event => (
+        <EventCard
+          key={event.id}
+          event={event}
+          showManageAction={showManageAction}
+        />
+      ))}
     </div>
   )
 }
@@ -118,6 +125,7 @@ export default function DashboardPage() {
               loading={eventsLoading}
               events={myEvents}
               emptyMsg="Bạn chưa tổ chức vãng lai nào. Hãy tạo ngay!"
+              showManageAction
             />
           ) : (
             <EventGrid
