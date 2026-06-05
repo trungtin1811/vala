@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
+import { apiFetch } from '@/lib/api'
 import type { Event, EventStatus, SkillLevel } from '@/types'
 
 interface EventFilters {
@@ -13,21 +13,12 @@ export function useEvents(filters: EventFilters = {}) {
   return useQuery({
     queryKey: ['events', filters],
     queryFn: async () => {
-      let query = supabase
-        .from('events')
-        .select(`*, host:users(*), skill_requirements:event_skill_requirements(*)`)
-        .order('event_date', { ascending: true })
-        .order('event_time', { ascending: true })
-
-      if (filters.status) query = query.eq('status', filters.status)
-      else query = query.in('status', ['active', 'closed'])
-
-      if (filters.location) query = query.ilike('location', `%${filters.location}%`)
-      if (filters.date) query = query.eq('event_date', filters.date)
-
-      const { data, error } = await query
-      if (error) throw error
-      return data as Event[]
+      const params = new URLSearchParams()
+      if (filters.status) params.set('status', filters.status)
+      else params.set('activeOnly', '1')
+      if (filters.location) params.set('location', filters.location)
+      if (filters.date) params.set('date', filters.date)
+      return apiFetch<Event[]>(`/api/events?${params.toString()}`)
     },
   })
 }
@@ -35,15 +26,7 @@ export function useEvents(filters: EventFilters = {}) {
 export function useEvent(id: string) {
   return useQuery({
     queryKey: ['event', id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('events')
-        .select(`*, host:users(*), skill_requirements:event_skill_requirements(*)`)
-        .eq('id', id)
-        .single()
-      if (error) throw error
-      return data as Event
-    },
+    queryFn: () => apiFetch<Event>(`/api/events/${id}`),
     enabled: !!id,
   })
 }
@@ -51,15 +34,7 @@ export function useEvent(id: string) {
 export function useMyEvents(userId: string | undefined) {
   return useQuery({
     queryKey: ['my-events', userId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('events')
-        .select(`*, skill_requirements:event_skill_requirements(*)`)
-        .eq('host_id', userId!)
-        .order('event_date', { ascending: false })
-      if (error) throw error
-      return data as Event[]
-    },
+    queryFn: () => apiFetch<Event[]>('/api/events?mine=1&order=desc'),
     enabled: !!userId,
   })
 }
@@ -67,10 +42,8 @@ export function useMyEvents(userId: string | undefined) {
 export function useDeleteEvent() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('events').delete().eq('id', id)
-      if (error) throw error
-    },
+    mutationFn: (id: string) =>
+      apiFetch<void>(`/api/events/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['events'] }),
   })
 }

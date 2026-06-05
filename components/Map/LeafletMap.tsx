@@ -163,7 +163,23 @@ export default function LeafletMap({
         </>
       )}
 
-      <MarkerClusterGroup maxClusterRadius={60} chunkedLoading>
+      <MarkerClusterGroup
+        maxClusterRadius={50}
+        chunkedLoading
+        showCoverageOnHover={false}
+        spiderfyOnMaxZoom
+        spiderfyDistanceMultiplier={1.8}
+        removeOutsideVisibleBounds
+        iconCreateFunction={(cluster: { getChildCount: () => number }) => {
+          const count = cluster.getChildCount();
+          const size = count < 10 ? 38 : count < 100 ? 44 : 52;
+          return L.divIcon({
+            html: `<div class="vala-cluster"><span>${count}</span></div>`,
+            className: "vala-cluster-icon",
+            iconSize: L.point(size, size),
+          });
+        }}
+      >
         {events
           .filter((e) => e.latitude != null && e.longitude != null)
           .map((event) => {

@@ -3,32 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { EventForm, type EventFormValues } from "@/components/shared/EventForm";
-import { supabase } from "@/lib/supabase";
+import { apiFetch } from "@/lib/api";
 import { useState } from "react";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { computeEndDate } from "@/lib/eventTime";
-import { format } from "date-fns";
-
-function generateRepeatDates(
-  startDate: string,
-  repeatDays: number[],
-  untilDate: string,
-): string[] {
-  const dates: string[] = [];
-  const start = new Date(startDate + "T00:00:00");
-  const end = new Date(untilDate + "T00:00:00");
-  if (end < start || repeatDays.length === 0) return [startDate];
-  const cur = new Date(start);
-  while (cur <= end) {
-    if (repeatDays.includes(cur.getDay())) {
-      dates.push(format(cur, "yyyy-MM-dd"));
-    }
-    cur.setDate(cur.getDate() + 1);
-  }
-  return dates.length > 0 ? dates : [startDate];
-}
 
 export default function CreateEventPage() {
   const { user, loading } = useAuth();
@@ -55,65 +34,15 @@ export default function CreateEventPage() {
     setSubmitting(true);
     setError(null);
     try {
-      const dates =
-        values.repeat_enabled &&
-        values.repeat_days.length > 0 &&
-        values.repeat_until
-          ? generateRepeatDates(
-              values.event_date,
-              values.repeat_days,
-              values.repeat_until,
-            )
-          : [values.event_date];
+      const { firstEventId, count } = await apiFetch<{
+        firstEventId: string | null;
+        count: number;
+      }>("/api/events", {
+        method: "POST",
+        body: JSON.stringify(values),
+      });
 
-      let firstEventId: string | null = null;
-
-      for (const date of dates) {
-        const { data: event, error: eventError } = await supabase
-          .from("events")
-          .insert({
-            host_id: user!.id,
-            title: values.title,
-            description: values.description || null,
-            location: values.location,
-            court_id: values.court_id,
-            court_address: values.court_address || null,
-            latitude: values.latitude,
-            longitude: values.longitude,
-            event_date: date,
-            event_time: values.event_time,
-            event_end_time: values.event_end_time || null,
-            event_end_date: computeEndDate(
-              date,
-              values.event_time,
-              values.event_end_time,
-            ),
-            status: "active",
-            token_cost: 0,
-            total_slots: values.total_slots,
-            booked_slots: 0,
-            price_min: values.price_enabled ? (values.price_min ?? null) : null,
-            price_max: values.price_enabled ? (values.price_max ?? null) : null,
-            split_evenly: values.price_enabled ? values.split_evenly : false,
-          })
-          .select()
-          .single();
-
-        if (eventError) throw eventError;
-        if (!firstEventId) firstEventId = event.id;
-
-        const requirements = values.skill_levels.map((level) => ({
-          event_id: event.id,
-          skill_level: level,
-        }));
-
-        const { error: reqError } = await supabase
-          .from("event_skill_requirements")
-          .insert(requirements);
-        if (reqError) throw reqError;
-      }
-
-      router.push(dates.length > 1 ? "/dashboard" : `/events/${firstEventId}`);
+      router.push(count > 1 ? "/dashboard" : `/events/${firstEventId}`);
     } catch (e: any) {
       setError(e.message ?? "Có lỗi xảy ra");
     } finally {

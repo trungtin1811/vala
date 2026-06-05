@@ -7,8 +7,7 @@ import { ChevronLeft } from "lucide-react";
 import { useEvent } from "@/hooks/useEvents";
 import { useAuth } from "@/context/AuthContext";
 import { EventForm, type EventFormValues } from "@/components/shared/EventForm";
-import { supabase } from "@/lib/supabase";
-import { computeEndDate } from "@/lib/eventTime";
+import { apiFetch } from "@/lib/api";
 
 export default function EditEventPage({
   params,
@@ -54,47 +53,10 @@ export default function EditEventPage({
     setSubmitting(true);
     setError(null);
     try {
-      const { error: eventError } = await supabase
-        .from("events")
-        .update({
-          title: values.title,
-          description: values.description || null,
-          location: values.location,
-          court_id: values.court_id,
-          court_address: values.court_address || null,
-          latitude: values.latitude,
-          longitude: values.longitude,
-          event_date: values.event_date,
-          event_time: values.event_time,
-          event_end_time: values.event_end_time || null,
-          event_end_date: computeEndDate(
-            values.event_date,
-            values.event_time,
-            values.event_end_time,
-          ),
-          total_slots: values.total_slots,
-          price_min: values.price_enabled ? (values.price_min ?? null) : null,
-          price_max: values.price_enabled ? (values.price_max ?? null) : null,
-          split_evenly: values.price_enabled ? values.split_evenly : false,
-        })
-        .eq("id", id);
-
-      if (eventError) throw eventError;
-
-      await supabase
-        .from("event_skill_requirements")
-        .delete()
-        .eq("event_id", id);
-
-      const requirements = values.skill_levels.map((level) => ({
-        event_id: id,
-        skill_level: level,
-      }));
-      const { error: reqError } = await supabase
-        .from("event_skill_requirements")
-        .insert(requirements);
-      if (reqError) throw reqError;
-
+      await apiFetch(`/api/events/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(values),
+      });
       router.push(`/events/${id}`);
     } catch (e: any) {
       setError(e.message ?? "Có lỗi xảy ra");

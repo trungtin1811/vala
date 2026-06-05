@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { supabase } from "@/lib/supabase";
+import { apiFetch } from "@/lib/api";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
@@ -53,16 +53,17 @@ export default function MyProfilePage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    await supabase
-      .from("users")
-      .update({
+    await apiFetch("/api/me", {
+      method: "PATCH",
+      body: JSON.stringify({
         display_name: form.display_name,
         phone: form.phone || null,
         bio: form.bio || null,
         skill_level: (form.skill_level as SkillLevel) || null,
-      })
-      .eq("id", user!.id);
+      }),
+    });
     qc.invalidateQueries({ queryKey: ["user", user!.id] });
+    qc.invalidateQueries({ queryKey: ["me"] });
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);

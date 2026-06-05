@@ -46,20 +46,56 @@
   background: #E5E7EB !important;
 }
 
-/* Cluster markers */
-.marker-cluster-small,
-.marker-cluster-medium,
-.marker-cluster-large {
-  background-color: rgba(0, 82, 204, 0.15) !important;
+/* Cluster markers (custom) */
+.vala-cluster-icon {
+  background: transparent !important;
+  border: none !important;
 }
 
-.marker-cluster-small div,
-.marker-cluster-medium div,
-.marker-cluster-large div {
-  background-color: rgba(0, 82, 204, 0.8) !important;
-  color: white !important;
-  font-weight: 700 !important;
-  font-family: 'Inter', system-ui, sans-serif !important;
+.vala-cluster {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #0052CC;
+  color: #fff;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  /* translucent halo + soft shadow */
+  box-shadow:
+    0 0 0 6px rgba(0, 82, 204, 0.18),
+    0 4px 12px rgba(0, 82, 204, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.vala-cluster:hover {
+  transform: scale(1.08);
+  box-shadow:
+    0 0 0 8px rgba(0, 82, 204, 0.22),
+    0 6px 16px rgba(0, 82, 204, 0.4);
+}
+
+/* Cluster animations — react-leaflet-cluster does not ship these, so cluster
+   zoom/spiderfy would otherwise jump instantly. Mirrors leaflet.markercluster's
+   MarkerCluster.css. */
+.leaflet-cluster-anim .leaflet-marker-icon,
+.leaflet-cluster-anim .leaflet-marker-shadow {
+  transition:
+    transform 0.3s ease-out,
+    opacity 0.3s ease-in;
+}
+
+/* Spiderfy legs theming + animation (when same-location events fan out) */
+.leaflet-cluster-spider-leg {
+  stroke: #0052CC !important;
+  stroke-opacity: 0.5 !important;
+  stroke-width: 1.5 !important;
+  transition:
+    stroke-dashoffset 0.3s ease-out,
+    stroke-opacity 0.3s ease-in;
 }
 
 /* Controls */

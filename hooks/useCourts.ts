@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
+import { apiFetch } from '@/lib/api'
 import { useAuth } from '@/context/AuthContext'
 import type { Court } from '@/types'
 
@@ -10,16 +10,7 @@ export function useCourts() {
 
   return useQuery<Court[]>({
     queryKey: ['courts', user?.id],
-    queryFn: async () => {
-      if (!user) return []
-      const { data, error } = await supabase
-        .from('courts')
-        .select('*')
-        .eq('owner_id', user.id)
-        .order('created_at', { ascending: false })
-      if (error) throw error
-      return data as Court[]
-    },
+    queryFn: () => apiFetch<Court[]>('/api/courts'),
     enabled: !!user,
   })
 }
@@ -29,16 +20,11 @@ export function useCreateCourt() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (values: { name: string; address?: string | null; latitude?: number | null; longitude?: number | null }) => {
-      if (!user) throw new Error('Not authenticated')
-      const { data, error } = await supabase
-        .from('courts')
-        .insert({ owner_id: user.id, ...values })
-        .select()
-        .single()
-      if (error) throw error
-      return data as Court
-    },
+    mutationFn: (values: { name: string; address?: string | null; latitude?: number | null; longitude?: number | null }) =>
+      apiFetch<Court>('/api/courts', {
+        method: 'POST',
+        body: JSON.stringify(values),
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courts', user?.id] })
     },

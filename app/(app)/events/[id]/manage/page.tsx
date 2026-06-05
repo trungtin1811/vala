@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { SkillLevelBadge } from "@/components/shared/SkillLevelBadge";
 import { EventStatusBadge } from "@/components/shared/EventStatusBadge";
-import { supabase } from "@/lib/supabase";
+import { apiFetch } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Booking, EventStatus } from "@/types";
 
@@ -78,7 +78,10 @@ export default function ManageEventPage({
 
   async function updateStatus(status: EventStatus) {
     setStatusLoading(true);
-    await supabase.from("events").update({ status }).eq("id", id);
+    await apiFetch(`/api/events/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
     qc.invalidateQueries({ queryKey: ["event", id] });
     setStatusLoading(false);
   }

@@ -3,7 +3,7 @@
 import { use } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+import { apiFetch } from '@/lib/api'
 import { SkillLevelBadge } from '@/components/shared/SkillLevelBadge'
 import { EventCard } from '@/components/shared/EventCard'
 import type { User, Event } from '@/types'
@@ -13,25 +13,15 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ['user', id],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('users').select('*').eq('id', id).single()
-      if (error) throw error
-      return data as User
-    },
+    queryFn: () => apiFetch<User>(`/api/users/${id}`),
   })
 
   const { data: hostedEvents } = useQuery({
     queryKey: ['user-events', id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('events')
-        .select('*, skill_requirements:event_skill_requirements(*)')
-        .eq('host_id', id)
-        .in('status', ['active', 'closed'])
-        .order('event_date', { ascending: true })
-        .limit(6)
-      return (data ?? []) as Event[]
-    },
+    queryFn: () =>
+      apiFetch<Event[]>(
+        `/api/events?host_id=${id}&activeOnly=1&order=asc&limit=6`,
+      ),
     enabled: !!id,
   })
 
