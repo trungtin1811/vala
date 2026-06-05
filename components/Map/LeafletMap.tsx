@@ -248,9 +248,13 @@ function LocateButton({
       <button
         onClick={() => {
           if (location) {
-            map.flyTo([location.lat, location.lng], Math.max(map.getZoom(), 15), {
-              duration: 0.8,
-            });
+            map.flyTo(
+              [location.lat, location.lng],
+              Math.max(map.getZoom(), 15),
+              {
+                duration: 0.8,
+              },
+            );
             return;
           }
 
@@ -321,8 +325,6 @@ export default function LeafletMap({
   const markersRef = useRef<Record<string, L.Marker | null>>({});
   const [clusterPopup, setClusterPopup] = useState<ClusterPopupState>(null);
 
- 
-
   function handleClusterClick(cluster: ClusterLayer) {
     const childEvents = cluster
       .getAllChildMarkers()
@@ -343,7 +345,8 @@ export default function LeafletMap({
   }
 
   return (
-    <MapContainer center={center}
+    <MapContainer
+      center={center}
       zoom={DEFAULT_ZOOM}
       style={{ height: "100%", width: "100%", borderRadius: "16px" }}
       zoomControl={true}
