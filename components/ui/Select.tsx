@@ -66,7 +66,7 @@ export function Select({
         <SelectPrimitive.Portal>
           <SelectPrimitive.Content
             position="popper"
-            className="z-50 w-[var(--radix-select-trigger-width)] overflow-hidden rounded-xl border border-[#E5E7EB] bg-white shadow-lg"
+            className="z-[1200] w-[var(--radix-select-trigger-width)] overflow-hidden rounded-xl border border-[#E5E7EB] bg-white shadow-lg"
           >
             <SelectPrimitive.ScrollUpButton className="flex items-center justify-center py-1 text-[#6B7280]">
               <ChevronUp size={14} />

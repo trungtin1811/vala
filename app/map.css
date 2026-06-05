@@ -1,21 +1,22 @@
 /* Leaflet core CSS overrides */
 .leaflet-container {
-  background-color: #E8F3FF;
-  font-family: 'Inter', system-ui, sans-serif;
+  background-color: #e8f3ff;
+  font-family: "Inter", system-ui, sans-serif;
   border-radius: 16px;
 }
 
 .leaflet-popup-content-wrapper {
   border-radius: 14px !important;
   box-shadow: 0 8px 24px rgba(0, 82, 204, 0.18) !important;
-  border: 1.5px solid #0052CC;
+  border: 1.5px solid #0052cc;
   padding: 0;
   overflow: hidden;
 }
 
 .leaflet-popup-content {
   margin: 0 !important;
-  width: 240px !important;
+  width: auto !important;
+  max-width: calc(100vw - 2rem) !important;
 }
 
 .leaflet-popup-tip-container {
@@ -23,12 +24,12 @@
 }
 
 .leaflet-popup-tip {
-  background: #0052CC !important;
+  background: #0052cc !important;
   box-shadow: none !important;
 }
 
 .leaflet-popup-close-button {
-  color: #6B7280 !important;
+  color: #6b7280 !important;
   font-size: 18px !important;
   top: 8px !important;
   right: 8px !important;
@@ -37,13 +38,13 @@
   display: flex !important;
   align-items: center;
   justify-content: center;
-  background: #F3F4F6 !important;
+  background: #f3f4f6 !important;
   border-radius: 50% !important;
 }
 
 .leaflet-popup-close-button:hover {
-  color: #1F2937 !important;
-  background: #E5E7EB !important;
+  color: #1f2937 !important;
+  background: #e5e7eb !important;
 }
 
 /* Cluster markers (custom) */
@@ -59,16 +60,18 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: #0052CC;
+  background: #0052cc;
   color: #fff;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: "Inter", system-ui, sans-serif;
   font-weight: 700;
   font-size: 14px;
   /* translucent halo + soft shadow */
   box-shadow:
     0 0 0 6px rgba(0, 82, 204, 0.18),
     0 4px 12px rgba(0, 82, 204, 0.35);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .vala-cluster:hover {
@@ -90,7 +93,7 @@
 
 /* Spiderfy legs theming + animation (when same-location events fan out) */
 .leaflet-cluster-spider-leg {
-  stroke: #0052CC !important;
+  stroke: #0052cc !important;
   stroke-opacity: 0.5 !important;
   stroke-width: 1.5 !important;
   transition:
@@ -103,13 +106,13 @@
   border: none !important;
   border-radius: 12px !important;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
 }
 
 .leaflet-control-zoom-in,
 .leaflet-control-zoom-out {
   background: white !important;
-  color: #1F2937 !important;
+  color: #1f2937 !important;
   border: none !important;
   font-size: 16px !important;
   line-height: 28px !important;
@@ -119,6 +122,6 @@
 
 .leaflet-control-zoom-in:hover,
 .leaflet-control-zoom-out:hover {
-  background: #E8F3FF !important;
-  color: #0052CC !important;
+  background: #e8f3ff !important;
+  color: #0052cc !important;
 }

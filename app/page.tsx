@@ -12,8 +12,9 @@ import { useBook, useMyBookings } from "@/hooks/useBookings";
 import { useUserLocation } from "@/hooks/useUserLocation";
 import { useAuth } from "@/context/AuthContext";
 import { haversineDistance } from "@/lib/distance";
-import { Locate, ChevronUp, ChevronDown } from "lucide-react";
-import type { Event, FilterState } from "@/types";
+import { ChevronUp, ChevronDown } from "lucide-react";
+import type { Event, FilterState, SkillLevel } from "@/types";
+import { computeEndDate } from "@/lib/eventTime";
 
 const LeafletMap = dynamic(() => import("@/components/Map/LeafletMap"), {
   ssr: false,
@@ -42,9 +43,8 @@ export default function HomePage() {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [bookingEvent, setBookingEvent] = useState<Event | null>(null);
-  const [selectedSkillLevel, setSelectedSkillLevel] = useState<string | null>(
-    null,
-  );
+  const [selectedSkillLevel, setSelectedSkillLevel] =
+    useState<SkillLevel | null>(null);
   const [mobileListOpen, setMobileListOpen] = useState(false);
 
   // Precompute distances
@@ -95,6 +95,30 @@ export default function HomePage() {
       });
     }
 
+    // Remove events that have already ended
+    const now = new Date();
+    const isEventActiveNow = (e: Event) => {
+      try {
+        const endDate =
+          e.event_end_date ??
+          computeEndDate(
+            e.event_date,
+            e.event_time,
+            e.event_end_time ?? e.event_time,
+          );
+        const endTime = e.event_end_time ?? e.event_time;
+        if (!endDate || !endTime) return true;
+        const [y, m, d] = endDate.split("-").map(Number);
+        const [hh, mm] = endTime.split(":").map(Number);
+        const endDt = new Date(y, m - 1, d, hh, mm, 0);
+        return endDt >= now;
+      } catch {
+        return true;
+      }
+    };
+
+    evs = evs.filter(isEventActiveNow);
+
     return [...evs].sort((a, b) => {
       if (filters.sortBy === "distance") {
         return (distances[a.id] ?? Infinity) - (distances[b.id] ?? Infinity);
@@ -143,7 +167,7 @@ export default function HomePage() {
     await bookMutation.mutateAsync({
       eventId: bookingEvent.id,
       memberId: user.id,
-      skillLevel: selectedSkillLevel as any,
+      skillLevel: selectedSkillLevel,
     });
     setBookingEvent(null);
   }
@@ -165,21 +189,10 @@ export default function HomePage() {
                 userLocation={userLocation}
                 onMarkerClick={handleEventSelect}
                 onBookEvent={user ? handleBookEvent : undefined}
+                onLocateRequest={requestLocation}
               />
             </div>
-            {/* Center on user button */}
-            <button
-              onClick={requestLocation}
-              title="Định vị tôi"
-              className="absolute bottom-6 right-4 z-[400] bg-white border border-[#E5E7EB] rounded-xl p-2.5 shadow-md hover:bg-[#E8F3FF] hover:border-[#0052CC] transition-all"
-            >
-              <Locate
-                size={18}
-                className={userLocation ? "text-[#0052CC]" : "text-[#6B7280]"}
-              />
-            </button>
           </div>
-
           {/* Sidebar */}
           <div className="flex-[3] p-3 pl-1.5">
             <div className="h-full border border-[#E5E7EB] rounded-2xl overflow-hidden shadow-sm">
@@ -210,19 +223,9 @@ export default function HomePage() {
               userLocation={userLocation}
               onMarkerClick={handleEventSelect}
               onBookEvent={user ? handleBookEvent : undefined}
+              onLocateRequest={requestLocation}
             />
           </div>
-
-          {/* Locate button */}
-          <button
-            onClick={requestLocation}
-            className="absolute top-3 right-3 z-[400] bg-white border border-[#E5E7EB] rounded-xl p-2.5 shadow-md"
-          >
-            <Locate
-              size={18}
-              className={userLocation ? "text-[#0052CC]" : "text-[#6B7280]"}
-            />
-          </button>
 
           {/* Bottom sheet toggle */}
           <button

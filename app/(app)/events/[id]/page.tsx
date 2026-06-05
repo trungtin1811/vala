@@ -5,25 +5,39 @@ import DOMPurify from "dompurify";
 import { use, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Clock,
   Phone,
   ChevronLeft,
-  Settings,
-  MoreVertical,
   CalendarDays,
   User,
+  MapPin,
+  Users,
+  Wallet,
+  Pencil,
 } from "lucide-react";
 import { useEvent } from "@/hooks/useEvents";
-import { useEventBookings, useBook, useMyBookings } from "@/hooks/useBookings";
+import {
+  useApproveBooking,
+  useCancelBooking,
+  useEventBookings,
+  useBook,
+  useMyBookings,
+  useRejectBooking,
+  useToggleBookingPaid,
+} from "@/hooks/useBookings";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { SkillLevelBadge } from "@/components/shared/SkillLevelBadge";
 import { EventStatusBadge } from "@/components/shared/EventStatusBadge";
+import { BookingActionsMenu } from "@/components/shared/BookingActionsMenu";
+import { EventStatusActionsMenu } from "@/components/shared/EventStatusActionsMenu";
 import { formatDate } from "@/lib/utils";
 import { formatTimeRange } from "@/lib/eventTime";
-import { SKILL_LEVEL_LABELS, type SkillLevel } from "@/types";
+import { apiFetch } from "@/lib/api";
+import { type EventStatus, type SkillLevel } from "@/types";
 
 const CourtLocationWidget = dynamic(
   () => import("@/components/Map/CourtLocationWidget"),
@@ -46,20 +60,26 @@ export default function EventDetailPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
+  const qc = useQueryClient();
   const { user } = useAuth();
   const { data: event, isLoading } = useEvent(id);
-  const { data: bookings } = useEventBookings(id);
+  const isHost = user?.id === event?.host_id;
+  const { data: bookings } = useEventBookings(id, isHost);
   const { data: myBookings } = useMyBookings(user?.id);
   const bookMutation = useBook();
+  const cancelBooking = useCancelBooking();
+  const approveBooking = useApproveBooking();
+  const rejectBooking = useRejectBooking();
+  const togglePaid = useToggleBookingPaid();
 
   const [bookingModal, setBookingModal] = useState(false);
   const [selectedLevel, setSelectedLevel] = useState<SkillLevel | null>(null);
   const [bookedHostPhone, setBookedHostPhone] = useState<string | null>(null);
-  const [memberSkillFilter, setMemberSkillFilter] = useState<SkillLevel | "all">(
-    "all",
-  );
+  const [memberView, setMemberView] = useState<
+    "all" | "pending" | "payment" | "approved"
+  >("all");
+  const [statusLoading, setStatusLoading] = useState(false);
 
-  const isHost = user?.id === event?.host_id;
   const myBooking = myBookings?.find((b) => b.event_id === id);
   const hasBooked = !!myBooking;
   const isApproved = myBooking?.approval_status === "approved";
@@ -74,6 +94,20 @@ export default function EventDetailPage({
     });
     setBookingModal(false);
     setBookedHostPhone(event.host?.phone ?? null);
+  }
+
+  async function updateStatus(status: EventStatus) {
+    setStatusLoading(true);
+    try {
+      await apiFetch(`/api/events/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      qc.invalidateQueries({ queryKey: ["event", id] });
+      qc.invalidateQueries({ queryKey: ["events"] });
+    } finally {
+      setStatusLoading(false);
+    }
   }
 
   if (isLoading) {
@@ -107,10 +141,38 @@ export default function EventDetailPage({
   const sanitizedDescription = event.description
     ? DOMPurify.sanitize(event.description)
     : "";
-  const visibleBookings = bookings?.filter(
-    (booking) =>
-      memberSkillFilter === "all" || booking.skill_level === memberSkillFilter,
+  const approvedBookings =
+    bookings?.filter((booking) => booking.approval_status === "approved") ?? [];
+  const pendingBookings =
+    bookings?.filter((booking) => booking.approval_status === "pending") ?? [];
+  const paidBookings = approvedBookings.filter((booking) => booking.is_paid);
+  const unpaidApprovedBookings = approvedBookings.filter(
+    (booking) => !booking.is_paid,
   );
+  const visibleBookings =
+    bookings?.filter((booking) => {
+      const matchesView =
+        memberView === "all" ||
+        (memberView === "pending" && booking.approval_status === "pending") ||
+        (memberView === "approved" && booking.approval_status === "approved") ||
+        (memberView === "payment" &&
+          booking.approval_status === "approved" &&
+          !booking.is_paid);
+
+      return matchesView;
+    }) ?? [];
+  const memberTabs = [
+    { value: "all", label: "Tất cả", count: bookings?.length ?? 0 },
+    { value: "pending", label: "Chờ duyệt", count: pendingBookings.length },
+    {
+      value: "payment",
+      label: "Thu tiền",
+      count: unpaidApprovedBookings.length,
+    },
+    { value: "approved", label: "Đã duyệt", count: approvedBookings.length },
+  ] as const;
+  const slotPercent =
+    event.total_slots > 0 ? (event.booked_slots / event.total_slots) * 100 : 0;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
@@ -121,23 +183,25 @@ export default function EventDetailPage({
         <ChevronLeft size={16} /> Tất cả vãng lai
       </Link>
 
-      <div className="bg-white border border-[#E5E7EB] rounded-2xl shadow-sm overflow-visible">
-        <div className="bg-gradient-to-r from-[#0052CC] to-[#0066FF] p-6 text-white">
-          <div className="flex items-start justify-between gap-4 flex-wrap">
+      <div className="rounded-3xl border border-[#D8E2F0] bg-white shadow-sm overflow-hidden">
+        <div className="bg-linear-to-r from-[#0052CC] via-[#0066FF] to-[#2A7CFF] p-6 text-white">
+          <div className="flex flex-wrap items-start justify-between gap-5">
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="text-2xl font-bold">{event.title}</h1>
+                <h1 className="text-3xl font-bold tracking-normal text-white">
+                  {event.title}
+                </h1>
                 <EventStatusBadge status={event.status} />
               </div>
               {event.host && (
-                <div className="flex items-center gap-2 text-white/80 text-sm flex-wrap">
+                <div className="flex flex-wrap items-center gap-2 text-sm text-white/80">
                   <div className="relative group">
                     <div className="inline-flex items-center gap-2">
-                      <User size={14} className="text-white/70" />
+                      <User size={14} className="text-white/75" />
                       <span>Người tổ chức:</span>
                       <Link
                         href={`/profile/${event.host.id}`}
-                        className="text-white font-semibold hover:text-white/90"
+                        className="font-semibold text-white hover:text-white/90"
                       >
                         {event.host.display_name}
                       </Link>
@@ -146,6 +210,7 @@ export default function EventDetailPage({
                       <div className="rounded-xl border border-white/20 bg-white p-3 shadow-xl">
                         <div className="flex items-center gap-3">
                           {event.host.avatar_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={event.host.avatar_url}
                               alt={event.host.display_name}
@@ -157,7 +222,9 @@ export default function EventDetailPage({
                             </div>
                           )}
                           <div className="min-w-0">
-                            <p className="text-xs text-[#6B7280]">Người tổ chức</p>
+                            <p className="text-xs text-[#6B7280]">
+                              Người tổ chức
+                            </p>
                             <p className="text-sm font-semibold text-[#1F2937] truncate">
                               {event.host.display_name}
                             </p>
@@ -169,33 +236,90 @@ export default function EventDetailPage({
                       </div>
                     </div>
                   </div>
-                  <span className="text-white/50">•</span>
+                  <span className="text-white/40">•</span>
                   <div className="inline-flex items-center gap-2">
-                    <CalendarDays size={14} className="text-white/70" />
+                    <CalendarDays size={14} className="text-white/75" />
                     <span>{formatDate(event.event_date)}</span>
+                  </div>
+                  <span className="text-white/40">•</span>
+                  <div className="inline-flex items-center gap-2">
+                    <MapPin size={14} className="text-white/75" />
+                    <span>{event.location}</span>
                   </div>
                 </div>
               )}
             </div>
-            {isHost && (
-              <Link href={`/events/${id}/manage`}>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="bg-white/20 text-white border-0 hover:bg-white/30"
-                >
-                  <Settings size={14} /> Quản Lý
-                </Button>
-              </Link>
-            )}
           </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 p-4 md:grid-cols-4">
+          <DetailStat
+            icon={<Clock size={16} />}
+            label="Thời gian"
+            value={formatTimeRange(
+              event.event_time,
+              event.event_end_time ?? null,
+              event.event_date,
+              event.event_end_date ?? null,
+            )}
+          />
+          <DetailStat
+            icon={<Users size={16} />}
+            label="Slot"
+            value={`${event.booked_slots}/${event.total_slots}`}
+          />
+          <DetailStat
+            icon={<Wallet size={16} />}
+            label="Đã thu tiền"
+            value={`${paidBookings.length}/${approvedBookings.length || 0}`}
+          />
+          <DetailStat
+            icon={<CalendarDays size={16} />}
+            label="Chờ duyệt"
+            value={pendingBookings.length}
+          />
         </div>
       </div>
 
+      {isHost && (
+        <div className="mt-4 rounded-2xl border border-[#E5E7EB] bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-[#1F2937]">
+                Quản lý vãng lai
+              </p>
+              <p className="mt-0.5 text-xs text-[#9CA3AF]">
+                Chỉnh sửa thông tin, đổi trạng thái và kết thúc buổi chơi.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link href={`/events/${id}/edit`}>
+                <Button variant="secondary" size="sm">
+                  <Pencil size={14} /> Chỉnh sửa
+                </Button>
+              </Link>
+              <EventStatusActionsMenu
+                status={event.status}
+                onUpdateStatus={updateStatus}
+                disabled={statusLoading}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mt-6 grid grid-cols-1 lg:grid-cols-10 gap-6">
-        <div className="lg:col-span-6 bg-white border border-[#E5E7EB] rounded-2xl p-6">
+        <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-sm lg:col-span-6">
           <div className="flex items-center justify-between gap-4 mb-4">
-            <h2 className="text-base font-semibold text-[#1F2937]">Quản Lý Thành Viên</h2>
+            <div>
+              <h2 className="text-base font-semibold text-[#1F2937]">
+                Thành viên
+              </h2>
+              <p className="mt-0.5 text-xs text-[#9CA3AF]">
+                {approvedBookings.length} đã duyệt · {pendingBookings.length}{" "}
+                chờ duyệt
+              </p>
+            </div>
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-[#6B7280]">
                 Slot: {event.booked_slots}/{event.total_slots}
@@ -203,50 +327,49 @@ export default function EventDetailPage({
               <div className="w-28 h-2 bg-[#E5E7EB] rounded-full overflow-hidden">
                 <div
                   className="h-full bg-[#0052CC] rounded-full transition-all"
-                  style={{
-                    width: `${event.total_slots > 0 ? (event.booked_slots / event.total_slots) * 100 : 0}%`,
-                  }}
+                  style={{ width: `${slotPercent}%` }}
                 />
               </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2 mb-4">
-            <button
-              type="button"
-              onClick={() => setMemberSkillFilter("all")}
-              className={`px-3 py-1.5 rounded-xl text-sm font-medium border transition-colors ${
-                memberSkillFilter === "all"
-                  ? "bg-[#0052CC] text-white border-[#0052CC]"
-                  : "bg-white text-[#4B5563] border-[#D1D5DB] hover:border-[#9CA3AF]"
-              }`}
-            >
-              Tất cả
-            </button>
-            {availableRequirements.map((req) => (
-              <button
-                key={req.id}
-                type="button"
-                onClick={() => setMemberSkillFilter(req.skill_level)}
-                className={`px-3 py-1.5 rounded-xl text-sm font-medium border transition-colors ${
-                  memberSkillFilter === req.skill_level
-                    ? "bg-[#0052CC] text-white border-[#0052CC]"
-                    : "bg-white text-[#4B5563] border-[#D1D5DB] hover:border-[#9CA3AF]"
-                }`}
-              >
-                {SKILL_LEVEL_LABELS[req.skill_level]}
-              </button>
-            ))}
-          </div>
+          {isHost && (
+            <div className="mb-4 flex w-full gap-1 overflow-x-auto rounded-2xl bg-[#F8FAFC] p-1 sm:w-fit">
+              {memberTabs.map((tab) => (
+                <button
+                  key={tab.value}
+                  type="button"
+                  onClick={() => setMemberView(tab.value)}
+                  className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-semibold transition-colors ${
+                    memberView === tab.value
+                      ? "bg-white text-[#0052CC] shadow-sm"
+                      : "text-[#64748B] hover:bg-white/70 hover:text-[#1F2937]"
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  <span
+                    className={`min-w-5 rounded-full px-1.5 py-0.5 text-center text-[11px] ${
+                      memberView === tab.value
+                        ? "bg-[#E8F3FF] text-[#0052CC]"
+                        : "bg-white text-[#94A3B8]"
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
 
-          {visibleBookings && visibleBookings.length > 0 && (isHost || hasBooked) ? (
+          {visibleBookings.length > 0 && (isHost || hasBooked) ? (
             <div className="flex flex-col gap-3">
               {visibleBookings.map((booking) => (
                 <div
                   key={booking.id}
-                  className="flex items-center gap-3 rounded-xl border border-[#EEF2FF] bg-[#FBFCFF] px-3 py-2.5"
+                  className="flex items-center gap-3 rounded-2xl border border-[#EEF2FF] bg-[#FBFCFF] px-4 py-3 transition-colors hover:bg-[#F8FAFC]"
                 >
                   {booking.member?.avatar_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={booking.member.avatar_url}
                       alt=""
@@ -261,35 +384,85 @@ export default function EventDetailPage({
                     <p className="text-sm font-semibold text-[#1F2937] truncate">
                       {booking.member?.display_name}
                     </p>
-                    <div className="mt-1 flex items-center gap-2">
-                      <span className="text-xs text-[#6B7280]">Trình độ:</span>
+                    {booking.member?.phone && (
+                      <p className="mt-0.5 flex items-center gap-1 text-xs text-[#6B7280]">
+                        <Phone size={11} />
+                        {booking.member.phone}
+                      </p>
+                    )}
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
                       <SkillLevelBadge level={booking.skill_level} />
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                          booking.approval_status === "approved"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-amber-100 text-amber-700"
+                        }`}
+                      >
+                        {booking.approval_status === "approved"
+                          ? "Đã duyệt"
+                          : "Chờ duyệt"}
+                      </span>
+                      {isHost && (
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                            booking.is_paid
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-rose-100 text-rose-700"
+                          }`}
+                        >
+                          {booking.is_paid ? "Đã đóng tiền" : "Chưa đóng tiền"}
+                        </span>
+                      )}
                     </div>
-                    <p className="text-xs text-[#94A3B8] mt-1">
-                      Registered on{" "}
-                      {new Date(booking.booked_at).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
+                    <p className="mt-1 text-xs text-[#94A3B8]">
+                      Đăng ký ngày{" "}
+                      {new Date(booking.booked_at).toLocaleDateString("vi-VN", {
+                        day: "2-digit",
+                        month: "2-digit",
                       })}
                     </p>
                   </div>
                   {isHost && (
-                    <span
-                      className={`text-xs font-semibold px-3 py-1 rounded-full ${
-                        booking.is_paid
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-rose-100 text-rose-700"
-                      }`}
-                    >
-                      {booking.is_paid ? "ĐÃ ĐÓNG TIỀN" : "CHƯA ĐÓNG TIỀN"}
-                    </span>
+                    <BookingActionsMenu
+                      booking={booking}
+                      disabled={
+                        approveBooking.isPending ||
+                        rejectBooking.isPending ||
+                        togglePaid.isPending ||
+                        cancelBooking.isPending
+                      }
+                      onApprove={() =>
+                        approveBooking.mutate({
+                          bookingId: booking.id,
+                          eventId: id,
+                          skillLevel: booking.skill_level,
+                        })
+                      }
+                      onReject={() =>
+                        rejectBooking.mutate({
+                          bookingId: booking.id,
+                          eventId: id,
+                          skillLevel: booking.skill_level,
+                          approvalStatus: booking.approval_status,
+                        })
+                      }
+                      onTogglePaid={() =>
+                        togglePaid.mutate({
+                          bookingId: booking.id,
+                          isPaid: booking.is_paid,
+                        })
+                      }
+                      onRemove={() =>
+                        cancelBooking.mutate({
+                          bookingId: booking.id,
+                          eventId: id,
+                          skillLevel: booking.skill_level,
+                          approvalStatus: booking.approval_status,
+                        })
+                      }
+                    />
                   )}
-                  <button
-                    type="button"
-                    className="text-[#94A3B8] hover:text-[#64748B] transition-colors"
-                  >
-                    <MoreVertical size={16} />
-                  </button>
                 </div>
               ))}
             </div>
@@ -321,10 +494,12 @@ export default function EventDetailPage({
                 </p>
               </div>
             </div>
-            
+
             {event.description && (
               <div>
-                <h3 className="text-sm font-semibold text-[#1F2937] mb-2">Mô tả</h3>
+                <h3 className="text-sm font-semibold text-[#1F2937] mb-2">
+                  Mô tả
+                </h3>
                 <div
                   className="prose prose-sm max-w-none text-[#6B7280] prose-p:my-1"
                   dangerouslySetInnerHTML={{ __html: sanitizedDescription }}
@@ -347,7 +522,9 @@ export default function EventDetailPage({
                 <Button
                   size="lg"
                   className="w-full"
-                  onClick={() => (user ? setBookingModal(true) : router.push("/"))}
+                  onClick={() =>
+                    user ? setBookingModal(true) : router.push("/")
+                  }
                 >
                   {user ? "Tham Gia Vãng Lai" : "Đăng nhập để tham gia"}
                 </Button>
@@ -366,9 +543,7 @@ export default function EventDetailPage({
                 )}
               </div>
             )}
-
-
-          </div> 
+          </div>
           <div className="rounded-xl overflow-hidden border border-[#E5E7EB]">
             <CourtLocationWidget
               location={event.location}
@@ -376,56 +551,86 @@ export default function EventDetailPage({
               latitude={event.latitude}
               longitude={event.longitude}
             />
-          </div></div>
+          </div>
+        </div>
       </div>
 
       <Modal
         open={bookingModal}
         onClose={() => setBookingModal(false)}
-        title="Chọn Trình Độ Tham Gia"
+        title="Đặt Chỗ Vãng Lai"
         className="max-w-xl"
       >
-        <div className="flex flex-col gap-5">
-          <div className="rounded-xl bg-[#F8FAFF] border border-[#E3ECFF] p-3">
-            <p className="text-sm font-medium text-[#1F2937]">{event.title}</p>
-            <p className="text-xs text-[#6B7280] mt-0.5">
-              Chọn trình độ phù hợp để host duyệt nhanh hơn.
+        <div className="flex flex-col gap-4">
+          <div className="rounded-2xl border border-[#D8E8FF] bg-linear-to-r from-[#F4F8FF] to-white p-4">
+            <p className="text-base font-semibold leading-snug text-[#1F2937]">
+              {event.title}
             </p>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-[#6B7280]">
+              <div className="rounded-xl bg-white/80 px-3 py-2">
+                <p className="font-medium text-[#94A3B8]">Thời gian</p>
+                <p className="mt-0.5 font-semibold text-[#1F2937]">
+                  {formatTimeRange(
+                    event.event_time,
+                    event.event_end_time ?? null,
+                    event.event_date,
+                    event.event_end_date ?? null,
+                  )}
+                </p>
+              </div>
+              <div className="rounded-xl bg-white/80 px-3 py-2">
+                <p className="font-medium text-[#94A3B8]">Còn trống</p>
+                <p className="mt-0.5 font-semibold text-[#1F2937]">
+                  {availableSlots} chỗ
+                </p>
+              </div>
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-[#1F2937]">
+                Chọn trình độ
+              </p>
+              <p className="text-xs text-[#94A3B8]">Host sẽ duyệt theo level</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {availableRequirements.map((req) => (
               <button
                 key={req.id}
                 type="button"
                 onClick={() => setSelectedLevel(req.skill_level)}
-                className={`rounded-xl border px-3 py-2.5 transition-all text-left ${
+                className={`rounded-2xl border px-3 py-3 text-left transition-all ${
                   selectedLevel === req.skill_level
-                    ? "border-[#0052CC] bg-[#E8F3FF] shadow-sm"
+                    ? "border-[#0052CC] bg-[#E8F3FF] shadow-sm ring-2 ring-[#0052CC]/10"
                     : "border-[#E5E7EB] bg-white hover:border-[#9CC2FF] hover:bg-[#F9FBFF]"
                 }`}
               >
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex min-h-9 items-center justify-between gap-2">
                   <SkillLevelBadge level={req.skill_level} />
                   {selectedLevel === req.skill_level && (
-                    <span className="text-[11px] font-semibold text-[#0052CC]">
-                      Đã chọn
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#0052CC] text-[11px] font-bold text-white">
+                      ✓
                     </span>
                   )}
                 </div>
               </button>
             ))}
+            </div>
           </div>
 
-          <div className="flex items-center justify-between rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-2">
-            <p className="text-sm text-[#6B7280]">Số chỗ còn lại</p>
-            <p className="text-sm font-semibold text-[#1F2937]">
-              {availableSlots} chỗ
+          <div className="rounded-2xl border border-[#E5E7EB] bg-[#FBFCFE] px-4 py-3">
+            <p className="text-xs font-medium text-[#94A3B8]">Bạn đang chọn</p>
+            <p className="mt-1 text-sm font-semibold text-[#1F2937]">
+              {selectedLevel
+                ? "Sẵn sàng gửi yêu cầu đặt chỗ"
+                : "Chọn một trình độ để tiếp tục"}
             </p>
           </div>
 
           <Button
-            className="w-full"
+            size="lg"
+            className="w-full rounded-2xl"
             onClick={handleBook}
             loading={bookMutation.isPending}
             disabled={!selectedLevel}
@@ -439,6 +644,26 @@ export default function EventDetailPage({
           )}
         </div>
       </Modal>
+    </div>
+  );
+}
+
+function DetailStat({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+}) {
+  return (
+    <div className="rounded-2xl border border-[#E5E7EB] bg-[#FBFCFE] p-3">
+      <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-xl bg-[#E8F3FF] text-[#0052CC]">
+        {icon}
+      </div>
+      <p className="text-xs font-medium text-[#6B7280]">{label}</p>
+      <p className="mt-0.5 text-sm font-semibold text-[#1F2937]">{value}</p>
     </div>
   );
 }

@@ -6,7 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { LoginModal } from "@/components/ui/LoginModal";
 import { useEffect, useRef, useState } from "react";
-import { Menu, X, Feather } from "lucide-react";
+import { Menu, X, Feather, Plus, UserRound, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function Navbar() {
@@ -44,26 +44,29 @@ export function Navbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-white border-b border-[#E5E7EB] h-16">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-full flex items-center gap-4">
+      <header className="sticky top-0 z-40 h-16 border-b border-[#DDE7F6] bg-white/90 backdrop-blur-xl">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-linear-to-r from-[#0052CC] via-[#23A7FF] to-[#7C3AED]" />
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 h-full flex items-center gap-4">
           <Link
             href="/"
-            className="flex items-center gap-2 font-bold text-xl text-[#0052CC]"
+            className="group flex items-center gap-2.5 font-bold text-xl text-[#0052CC]"
           >
-            <Feather size={22} />
-            Vala
+            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#E8F3FF] text-[#0052CC] shadow-sm transition-transform group-hover:-rotate-6 group-hover:scale-105">
+              <Feather size={21} />
+            </span>
+            <span className="tracking-normal">Vala</span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-6 mx-auto">
+          <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-1 rounded-2xl bg-[#F6F9FE] p-1 md:flex">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "text-sm font-medium transition-colors",
+                  "rounded-xl px-4 py-2 text-sm font-semibold transition-all",
                   pathname.startsWith(link.href)
-                    ? "text-[#0052CC]"
-                    : "text-[#6B7280] hover:text-[#1F2937]",
+                    ? "bg-white text-[#0052CC] shadow-sm"
+                    : "text-[#64748B] hover:bg-white/70 hover:text-[#1F2937]",
                 )}
               >
                 {link.label}
@@ -71,27 +74,33 @@ export function Navbar() {
             ))}
           </nav>
 
-          <div className="hidden md:flex items-center gap-3">
+          <div className="ml-auto hidden md:flex items-center gap-3">
             {loading ? null : user ? (
               <>
                 <Link href="/events/create">
-                  <Button size="sm">+ Tạo Vãng Lai</Button>
+                  <Button
+                    size="sm"
+                    className="h-10 rounded-2xl px-4 shadow-md shadow-[#0052CC]/20"
+                  >
+                    <Plus size={16} /> Tạo Vãng Lai
+                  </Button>
                 </Link>
                 <div className="relative" ref={profileMenuRef}>
                   <button
                     onClick={() => setProfileMenuOpen((v) => !v)}
                     aria-haspopup="menu"
                     aria-expanded={profileMenuOpen}
-                    className="flex items-center gap-2 rounded-full hover:bg-[#F3F4F6] p-1 pr-3 transition-colors"
+                    className="flex items-center gap-2 rounded-2xl border border-transparent p-1 pr-3 transition-all hover:border-[#D8E2F0] hover:bg-[#F8FAFC]"
                   >
                     {user.avatar_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={user.avatar_url}
                         alt={user.display_name}
-                        className="w-8 h-8 rounded-full object-cover"
+                        className="h-9 w-9 rounded-full object-cover ring-2 ring-[#E8F3FF]"
                       />
                     ) : (
-                      <div className="w-8 h-8 rounded-full bg-[#E8F3FF] flex items-center justify-center text-[#0052CC] font-semibold text-sm">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-linear-to-br from-[#0052CC] to-[#A855F7] text-sm font-semibold text-white shadow-sm">
                         {user.display_name[0]?.toUpperCase()}
                       </div>
                     )}
@@ -101,17 +110,18 @@ export function Navbar() {
                   </button>
                   <div
                     className={cn(
-                      "absolute right-0 top-full mt-1 w-44 bg-white border border-[#E5E7EB] rounded-xl shadow-lg py-1 transition-opacity",
+                      "absolute right-0 top-full mt-2 w-48 overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white p-1 shadow-xl transition-all",
                       profileMenuOpen
-                        ? "opacity-100 pointer-events-auto"
-                        : "opacity-0 pointer-events-none",
+                        ? "translate-y-0 opacity-100 pointer-events-auto"
+                        : "-translate-y-1 opacity-0 pointer-events-none",
                     )}
                   >
                     <Link
                       href="/profile/me"
                       onClick={() => setProfileMenuOpen(false)}
-                      className="block px-4 py-2 text-sm text-[#1F2937] hover:bg-[#F3F4F6]"
+                      className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-[#1F2937] hover:bg-[#F3F4F6]"
                     >
+                      <UserRound size={14} />
                       Hồ Sơ
                     </Link>
                     <button
@@ -119,8 +129,9 @@ export function Navbar() {
                         setProfileMenuOpen(false);
                         signOut();
                       }}
-                      className="block w-full text-left px-4 py-2 text-sm text-[#EF4444] hover:bg-[#FEF2F2]"
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium text-[#EF4444] hover:bg-[#FEF2F2]"
                     >
+                      <LogOut size={14} />
                       Đăng Xuất
                     </button>
                   </div>
@@ -132,7 +143,7 @@ export function Navbar() {
           </div>
 
           <button
-            className="md:hidden p-2"
+            className="ml-auto rounded-xl border border-[#E5E7EB] p-2 text-[#1F2937] md:hidden"
             onClick={() => setMobileOpen((v) => !v)}
           >
             {mobileOpen ? <X size={20} /> : <Menu size={20} />}
@@ -140,13 +151,18 @@ export function Navbar() {
         </div>
 
         {mobileOpen && (
-          <div className="md:hidden bg-white border-b border-[#E5E7EB] px-4 py-4 flex flex-col gap-3">
+          <div className="md:hidden bg-white/95 border-b border-[#E5E7EB] px-4 py-4 flex flex-col gap-3 shadow-lg">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
                 onClick={() => setMobileOpen(false)}
-                className="text-sm font-medium text-[#1F2937] py-2"
+                className={cn(
+                  "rounded-xl px-3 py-2 text-sm font-semibold",
+                  pathname.startsWith(link.href)
+                    ? "bg-[#E8F3FF] text-[#0052CC]"
+                    : "text-[#1F2937] hover:bg-[#F3F4F6]",
+                )}
               >
                 {link.label}
               </Link>
