@@ -27,6 +27,7 @@ import { BookingActionsMenu } from "@/components/shared/BookingActionsMenu";
 import { apiFetch } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Booking, EventStatus } from "@/types";
+import { getErrorMessage, useToast } from "@/context/ToastContext";
 
 function shuffleArray<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -57,6 +58,7 @@ const teamColors = [
 export function EventManagePanel({ eventId }: { eventId: string }) {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const toast = useToast();
   const { data: event, isLoading } = useEvent(eventId);
   const { data: bookings } = useEventBookings(eventId, true);
   const cancelBooking = useCancelBooking();
@@ -87,13 +89,19 @@ export function EventManagePanel({ eventId }: { eventId: string }) {
 
   async function updateStatus(status: EventStatus) {
     setStatusLoading(true);
-    await apiFetch(`/api/events/${eventId}`, {
-      method: "PATCH",
-      body: JSON.stringify({ status }),
-    });
-    qc.invalidateQueries({ queryKey: ["event", eventId] });
-    qc.invalidateQueries({ queryKey: ["events"] });
-    setStatusLoading(false);
+    try {
+      await apiFetch(`/api/events/${eventId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      qc.invalidateQueries({ queryKey: ["event", eventId] });
+      qc.invalidateQueries({ queryKey: ["events"] });
+      toast.success("Cập nhật trạng thái vãng lai thành công.");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Không thể cập nhật trạng thái."));
+    } finally {
+      setStatusLoading(false);
+    }
   }
 
   function handleGenerateTeams() {
@@ -303,14 +311,14 @@ export function EventManagePanel({ eventId }: { eventId: string }) {
                     cancelBooking.isPending
                   }
                   onApprove={() =>
-                    approveBooking.mutate({
+                    approveBooking.mutateAsync({
                       bookingId: booking.id,
                       eventId,
                       skillLevel: booking.skill_level,
                     })
                   }
                   onReject={() =>
-                    rejectBooking.mutate({
+                    rejectBooking.mutateAsync({
                       bookingId: booking.id,
                       eventId,
                       skillLevel: booking.skill_level,
@@ -318,13 +326,13 @@ export function EventManagePanel({ eventId }: { eventId: string }) {
                     })
                   }
                   onTogglePaid={() =>
-                    togglePaid.mutate({
+                    togglePaid.mutateAsync({
                       bookingId: booking.id,
                       isPaid: booking.is_paid,
                     })
                   }
                   onRemove={() =>
-                    cancelBooking.mutate({
+                    cancelBooking.mutateAsync({
                       bookingId: booking.id,
                       eventId,
                       skillLevel: booking.skill_level,

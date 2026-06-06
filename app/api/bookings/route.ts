@@ -27,6 +27,19 @@ export async function GET(request: Request) {
   // Bookings for a given event.
   const eventId = searchParams.get("event_id");
   if (!eventId) return apiError("Thiếu event_id");
+  const user = await getAuthUser();
+  if (!user) return apiError("Chưa đăng nhập", 401);
+
+  const { data: event, error: eventError } = await supabase
+    .from("events")
+    .select("host_id")
+    .eq("id", eventId)
+    .single();
+  if (eventError) return handleError(eventError);
+  if (event.host_id !== user.id) {
+    return apiError("Chỉ chủ bài đăng mới xem được danh sách thành viên", 403);
+  }
+
   const includePending = searchParams.get("includePending") === "1";
 
   let query = supabase

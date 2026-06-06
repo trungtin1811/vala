@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import * as SelectPrimitive from "@radix-ui/react-select";
-import { Check, ChevronDown, ChevronUp } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface SelectOption {
@@ -20,6 +20,16 @@ interface SelectProps {
   id?: string;
   className?: string;
   disabled?: boolean;
+  searchable?: boolean;
+  searchPlaceholder?: string;
+}
+
+function normalizeSearchValue(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/đ/g, "d");
 }
 
 export function Select({
@@ -32,7 +42,18 @@ export function Select({
   id,
   className,
   disabled = false,
+  searchable = false,
+  searchPlaceholder = "Tìm kiếm...",
 }: SelectProps) {
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const filteredOptions = searchable
+    ? options.filter((option) =>
+        normalizeSearchValue(option.label).includes(
+          normalizeSearchValue(searchQuery.trim()),
+        ),
+      )
+    : options;
+
   return (
     <div className="flex flex-col gap-1.5">
       {label && (
@@ -43,6 +64,9 @@ export function Select({
       <SelectPrimitive.Root
         value={value}
         onValueChange={onValueChange}
+        onOpenChange={(open) => {
+          if (!open) setSearchQuery("");
+        }}
         disabled={disabled}
       >
         <SelectPrimitive.Trigger
@@ -68,11 +92,24 @@ export function Select({
             position="popper"
             className="z-[1200] w-[var(--radix-select-trigger-width)] overflow-hidden rounded-xl border border-[#E5E7EB] bg-white shadow-lg"
           >
+            {searchable && (
+              <div className="flex items-center gap-2 border-b border-[#E5E7EB] px-3 py-2">
+                <Search size={14} className="shrink-0 text-[#9CA3AF]" />
+                <input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  onKeyDown={(event) => event.stopPropagation()}
+                  placeholder={searchPlaceholder}
+                  autoFocus
+                  className="min-w-0 flex-1 bg-transparent text-sm text-[#1F2937] outline-none placeholder:text-[#9CA3AF]"
+                />
+              </div>
+            )}
             <SelectPrimitive.ScrollUpButton className="flex items-center justify-center py-1 text-[#6B7280]">
               <ChevronUp size={14} />
             </SelectPrimitive.ScrollUpButton>
             <SelectPrimitive.Viewport className="max-h-72 overflow-y-auto p-1">
-              {options.map((option) => (
+              {filteredOptions.map((option) => (
                 <SelectPrimitive.Item
                   key={option.value}
                   value={option.value}
@@ -86,6 +123,11 @@ export function Select({
                   <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
                 </SelectPrimitive.Item>
               ))}
+              {filteredOptions.length === 0 && (
+                <p className="px-3 py-2 text-sm text-[#9CA3AF]">
+                  Không tìm thấy kết quả
+                </p>
+              )}
             </SelectPrimitive.Viewport>
             <SelectPrimitive.ScrollDownButton className="flex items-center justify-center py-1 text-[#6B7280]">
               <ChevronDown size={14} />

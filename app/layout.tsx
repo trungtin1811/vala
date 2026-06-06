@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/context/AuthContext'
 import { QueryProvider } from '@/context/QueryProvider'
+import { ToastProvider } from '@/context/ToastContext'
 
 const inter = Inter({ subsets: ['latin'], display: 'swap' })
 
@@ -16,9 +17,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="vi" className={`${inter.className} h-full`}>
       <body className="min-h-full flex flex-col bg-white" suppressHydrationWarning>
         <QueryProvider>
-          <AuthProvider>
-            {children}
-          </AuthProvider>
+          <ToastProvider>
+            <AuthProvider>
+              {children}
+            </AuthProvider>
+          </ToastProvider>
         </QueryProvider>
       </body>
     </html>

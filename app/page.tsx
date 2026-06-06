@@ -164,12 +164,16 @@ export default function HomePage() {
 
   async function confirmBooking() {
     if (!user || !bookingEvent || !selectedSkillLevel) return;
-    await bookMutation.mutateAsync({
-      eventId: bookingEvent.id,
-      memberId: user.id,
-      skillLevel: selectedSkillLevel,
-    });
-    setBookingEvent(null);
+    try {
+      await bookMutation.mutateAsync({
+        eventId: bookingEvent.id,
+        memberId: user.id,
+        skillLevel: selectedSkillLevel,
+      });
+      setBookingEvent(null);
+    } catch {
+      // The booking mutation reports the error through the global toast.
+    }
   }
 
   return (

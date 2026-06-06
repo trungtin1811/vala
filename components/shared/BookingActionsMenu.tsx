@@ -13,10 +13,10 @@ import type { Booking } from "@/types";
 
 interface BookingActionsMenuProps {
   booking: Booking;
-  onApprove?: () => void;
-  onReject?: () => void;
-  onTogglePaid?: () => void;
-  onRemove?: () => void;
+  onApprove?: () => Promise<unknown>;
+  onReject?: () => Promise<unknown>;
+  onTogglePaid?: () => Promise<unknown>;
+  onRemove?: () => Promise<unknown>;
   disabled?: boolean;
 }
 
@@ -89,10 +89,14 @@ export function BookingActionsMenu({
     };
   }, [open]);
 
-  function run(action?: () => void) {
+  async function run(action?: () => Promise<unknown>) {
     if (!action) return;
-    action();
-    setOpen(false);
+    try {
+      await action();
+      setOpen(false);
+    } catch {
+      // Mutation errors are reported by the global toast.
+    }
   }
 
   return (
@@ -120,7 +124,7 @@ export function BookingActionsMenu({
               <MenuItem
                 icon={<CheckCircle2 size={15} />}
                 label="Duyệt thành viên"
-                onClick={() => run(onApprove)}
+                onClick={() => void run(onApprove)}
                 className="text-emerald-700"
               />
             )}
@@ -128,7 +132,7 @@ export function BookingActionsMenu({
               <MenuItem
                 icon={<XCircle size={15} />}
                 label="Từ chối đăng ký"
-                onClick={() => run(onReject)}
+                onClick={() => void run(onReject)}
                 className="text-amber-700"
               />
             )}
@@ -140,7 +144,7 @@ export function BookingActionsMenu({
                     ? "Bỏ đánh dấu đã thu tiền"
                     : "Đánh dấu đã thu tiền"
                 }
-                onClick={() => run(onTogglePaid)}
+                onClick={() => void run(onTogglePaid)}
                 className="text-[#0052CC]"
               />
             )}
@@ -150,7 +154,7 @@ export function BookingActionsMenu({
                 <MenuItem
                   icon={<Trash2 size={15} />}
                   label="Xoá khỏi danh sách"
-                  onClick={() => run(onRemove)}
+                  onClick={() => void run(onRemove)}
                   className="text-red-600"
                 />
               </>

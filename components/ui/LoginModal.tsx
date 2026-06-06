@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { X, Feather } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { getErrorMessage, useToast } from "@/context/ToastContext";
 
 interface LoginModalProps {
   open: boolean;
@@ -40,6 +41,7 @@ function GoogleIcon() {
 
 export function LoginModal({ open, onClose }: LoginModalProps) {
   const { signInWithGoogle } = useAuth();
+  const toast = useToast();
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -56,6 +58,15 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
   }, [open, onClose]);
 
   if (!open) return null;
+
+  async function handleGoogleSignIn() {
+    try {
+      await signInWithGoogle();
+      onClose();
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Không thể đăng nhập với Google."));
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-1100 flex items-center justify-center p-4">
@@ -93,10 +104,7 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
         <div className="px-8 pb-8 flex flex-col gap-3">
           {/* Google */}
           <button
-            onClick={() => {
-              signInWithGoogle();
-              onClose();
-            }}
+            onClick={() => void handleGoogleSignIn()}
             className="w-full flex items-center gap-3 px-4 py-3 border border-[#E5E7EB] rounded-2xl text-sm font-medium text-[#1F2937] bg-white hover:bg-[#F9FAFB] hover:border-[#D1D5DB] active:scale-[0.98] transition-all"
           >
             <GoogleIcon />

@@ -1,8 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
+import { getErrorMessage, useToast } from "@/context/ToastContext";
 import type { Booking, BookingApprovalStatus, SkillLevel } from "@/types";
 
-export function useEventBookings(eventId: string, includePending = false) {
+export function useEventBookings(
+  eventId: string,
+  includePending = false,
+  enabled = true,
+) {
   return useQuery({
     queryKey: ["bookings", eventId, includePending],
     queryFn: () => {
@@ -10,7 +15,7 @@ export function useEventBookings(eventId: string, includePending = false) {
       if (includePending) params.set("includePending", "1");
       return apiFetch<Booking[]>(`/api/bookings?${params.toString()}`);
     },
-    enabled: !!eventId,
+    enabled: !!eventId && enabled,
   });
 }
 
@@ -24,6 +29,7 @@ export function useMyBookings(userId: string | undefined) {
 
 export function useBook() {
   const qc = useQueryClient();
+  const toast = useToast();
   return useMutation({
     mutationFn: ({
       eventId,
@@ -42,12 +48,15 @@ export function useBook() {
       qc.invalidateQueries({ queryKey: ["bookings", eventId] });
       qc.invalidateQueries({ queryKey: ["my-bookings"] });
       qc.invalidateQueries({ queryKey: ["events"] });
+      toast.success("Đặt chỗ thành công.");
     },
+    onError: (error) => toast.error(getErrorMessage(error, "Đặt chỗ thất bại.")),
   });
 }
 
 export function useCancelBooking() {
   const qc = useQueryClient();
+  const toast = useToast();
   return useMutation({
     mutationFn: ({
       bookingId,
@@ -73,12 +82,16 @@ export function useCancelBooking() {
       qc.invalidateQueries({ queryKey: ["event", eventId] });
       qc.invalidateQueries({ queryKey: ["bookings", eventId] });
       qc.invalidateQueries({ queryKey: ["my-bookings"] });
+      toast.success("Đã huỷ chỗ hoặc xoá thành viên khỏi danh sách.");
     },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Không thể huỷ chỗ.")),
   });
 }
 
 export function useApproveBooking() {
   const qc = useQueryClient();
+  const toast = useToast();
   return useMutation({
     mutationFn: ({
       bookingId,
@@ -98,12 +111,16 @@ export function useApproveBooking() {
       qc.invalidateQueries({ queryKey: ["bookings", eventId] });
       qc.invalidateQueries({ queryKey: ["events"] });
       qc.invalidateQueries({ queryKey: ["my-bookings"] });
+      toast.success("Đã duyệt thành viên.");
     },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Không thể duyệt thành viên.")),
   });
 }
 
 export function useRejectBooking() {
   const qc = useQueryClient();
+  const toast = useToast();
   return useMutation({
     mutationFn: ({
       bookingId,
@@ -130,12 +147,16 @@ export function useRejectBooking() {
       qc.invalidateQueries({ queryKey: ["bookings", eventId] });
       qc.invalidateQueries({ queryKey: ["my-bookings"] });
       qc.invalidateQueries({ queryKey: ["events"] });
+      toast.success("Đã từ chối đăng ký.");
     },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Không thể từ chối đăng ký.")),
   });
 }
 
 export function useToggleBookingPaid() {
   const qc = useQueryClient();
+  const toast = useToast();
   return useMutation({
     mutationFn: ({
       bookingId,
@@ -148,9 +169,14 @@ export function useToggleBookingPaid() {
         method: "PATCH",
         body: JSON.stringify({ action: "toggle-paid", isPaid }),
       }),
-    onSuccess: () => {
+    onSuccess: (_, { isPaid }) => {
       qc.invalidateQueries({ queryKey: ["bookings"] });
       qc.invalidateQueries({ queryKey: ["my-bookings"] });
+      toast.success(
+        isPaid ? "Đã bỏ đánh dấu thu tiền." : "Đã đánh dấu thu tiền.",
+      );
     },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, "Không thể cập nhật trạng thái tiền.")),
   });
 }

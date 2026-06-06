@@ -4,7 +4,11 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/Select";
 import { useCourts, useCreateCourt } from "@/hooks/useCourts";
-import { geocodeAddress, reverseGeocode } from "@/lib/geocoding";
+import {
+  geocodeAddress,
+  reverseGeocode,
+  type GeoResult,
+} from "@/lib/geocoding";
 import type { Court } from "@/types";
 import { Check, ChevronDown, Loader2, MapPin, Plus } from "lucide-react";
 import dynamic from "next/dynamic";
@@ -33,10 +37,6 @@ interface Province {
   code: number;
   name: string;
 }
-interface District {
-  code: number;
-  name: string;
-}
 interface Ward {
   code: number;
   name: string;
@@ -47,19 +47,86 @@ interface AddressFields {
   street: string;
   wardCode: number | null;
   wardName: string;
-  districtCode: number | null;
-  districtName: string;
   provinceCode: number | null;
   provinceName: string;
 }
 
 function buildAddress(f: AddressFields) {
-  return [f.street, f.wardName, f.districtName, f.provinceName]
+  return [f.street, f.wardName, f.provinceName]
     .filter(Boolean)
     .join(", ");
 }
 
-const BASE = "https://provinces.open-api.vn/api";
+const BASE = "https://provinces.open-api.vn/api/v2";
+
+function normalizeAdministrativeName(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/đ/g, "d")
+    .replace(
+      /^(thanh pho|tinh|quan|huyen|thi xa|thi tran|phuong|xa)\s+/,
+      "",
+    )
+    .replace(/\b(city|province|district|ward|town|commune)\b/g, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function findAdministrativeUnit<T extends { code: number; name: string }>(
+  options: T[],
+  candidates: string[],
+) {
+  const normalizedCandidates = candidates
+    .map(normalizeAdministrativeName)
+    .filter(Boolean);
+
+  return options.find((option) =>
+    normalizedCandidates.includes(normalizeAdministrativeName(option.name)),
+  );
+}
+
+function isString(value: string | undefined): value is string {
+  return Boolean(value);
+}
+
+function isLegacyDistrict(value: string) {
+  return /^(quận|huyện|thị xã|district)\s+/i.test(value);
+}
+
+function addressCandidates(result: GeoResult | null, query: string) {
+  const address = result?.address ?? {};
+  const queryParts = query.split(",").map((part) => part.trim());
+
+  return {
+    province: [
+      address.state,
+      address.city,
+      address.province,
+      ...queryParts.slice(1),
+    ].filter(isString),
+    ward: [
+      address.suburb,
+      address.quarter,
+      address.ward,
+      address.village,
+      address.municipality,
+      ...queryParts.slice(1).filter((part) => !isLegacyDistrict(part)),
+    ].filter(isString),
+  };
+}
+
+function streetFromGeocode(result: GeoResult | null, query: string) {
+  const address = result?.address ?? {};
+  const road =
+    address.road ??
+    address.pedestrian ??
+    address.residential ??
+    address.neighbourhood;
+  const preciseStreet = [address.house_number, road].filter(Boolean).join(" ");
+
+  return preciseStreet || query.split(",")[0]?.trim() || query;
+}
 
 function SelectField({
   label,
@@ -69,6 +136,7 @@ function SelectField({
   options,
   loading,
   disabled,
+  searchable,
 }: {
   label: string;
   placeholder: string;
@@ -77,6 +145,7 @@ function SelectField({
   options: { code: number; name: string }[];
   loading?: boolean;
   disabled?: boolean;
+  searchable?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -98,6 +167,8 @@ function SelectField({
           })),
         ]}
         disabled={disabled || loading}
+        searchable={searchable}
+        searchPlaceholder={`Tìm ${label.toLowerCase()}...`}
       />
     </div>
   );
@@ -106,7 +177,6 @@ function SelectField({
 export function CourtPicker({
   value,
   latitude,
-  longitude,
   onChange,
   error,
 }: CourtPickerProps) {
@@ -121,8 +191,6 @@ export function CourtPicker({
     street: "",
     wardCode: null,
     wardName: "",
-    districtCode: null,
-    districtName: "",
     provinceCode: null,
     provinceName: "",
   });
@@ -130,17 +198,14 @@ export function CourtPicker({
   const [geocoding, setGeocoding] = useState(false);
   const [createError, setCreateError] = useState("");
 
-  // Province / District / Ward data
+  // Province / Ward data
   const [provinces, setProvinces] = useState<Province[]>([]);
-  const [districts, setDistricts] = useState<District[]>([]);
   const [wards, setWards] = useState<Ward[]>([]);
   const [loadingProvinces, setLoadingProvinces] = useState(false);
-  const [loadingDistricts, setLoadingDistricts] = useState(false);
   const [loadingWards, setLoadingWards] = useState(false);
 
   useEffect(() => {
     if (!createOpen || provinces.length > 0) return;
-    setLoadingProvinces(true);
     fetch(`${BASE}/p/`)
       .then((r) => r.json())
       .then((data) => setProvinces(data))
@@ -152,33 +217,13 @@ export function CourtPicker({
       ...fields,
       provinceCode: code,
       provinceName: name,
-      districtCode: null,
-      districtName: "",
-      wardCode: null,
-      wardName: "",
-    };
-    setFields(next);
-    setDistricts([]);
-    setWards([]);
-    setLoadingDistricts(true);
-    const data = await fetch(`${BASE}/p/${code}?depth=2`).then((r) => r.json());
-    setDistricts(data.districts ?? []);
-    setLoadingDistricts(false);
-    triggerGeocode(next);
-  }
-
-  async function handleDistrictChange(code: number, name: string) {
-    const next: AddressFields = {
-      ...fields,
-      districtCode: code,
-      districtName: name,
       wardCode: null,
       wardName: "",
     };
     setFields(next);
     setWards([]);
     setLoadingWards(true);
-    const data = await fetch(`${BASE}/d/${code}?depth=2`).then((r) => r.json());
+    const data = await fetch(`${BASE}/p/${code}?depth=2`).then((r) => r.json());
     setWards(data.wards ?? []);
     setLoadingWards(false);
     triggerGeocode(next);
@@ -191,17 +236,71 @@ export function CourtPicker({
   }
 
   const geocodeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const geocodeRequest = useRef(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  async function mapAdministrativeFields(
+    result: GeoResult | null,
+    query: string,
+    request: number,
+  ) {
+    const candidates = addressCandidates(result, query);
+    let availableProvinces = provinces;
+    if (availableProvinces.length === 0) {
+      const data = await fetch(`${BASE}/p/`).then((r) => r.json());
+      if (request !== geocodeRequest.current) return;
+      availableProvinces = data;
+      setProvinces(data);
+    }
+
+    const province = findAdministrativeUnit(
+      availableProvinces,
+      candidates.province,
+    );
+    if (!province) return;
+
+    const provinceData = await fetch(`${BASE}/p/${province.code}?depth=2`).then(
+      (r) => r.json(),
+    );
+    if (request !== geocodeRequest.current) return;
+    const availableWards: Ward[] = provinceData.wards ?? [];
+    const ward = findAdministrativeUnit(availableWards, candidates.ward);
+
+    setWards(availableWards);
+    setFields((prev) => ({
+      ...prev,
+      street: streetFromGeocode(result, query),
+      provinceCode: province.code,
+      provinceName: province.name,
+      wardCode: ward?.code ?? null,
+      wardName: ward?.name ?? "",
+    }));
+  }
+
+  async function geocodeAndSetPin(query: string) {
+    const normalized = query.trim();
+    if (normalized.length < 5) return;
+
+    const request = ++geocodeRequest.current;
+    setGeocoding(true);
+    try {
+      const result = await geocodeAddress(normalized);
+      if (request !== geocodeRequest.current) return;
+      if (result) setPin({ lat: result.lat, lng: result.lng });
+      await mapAdministrativeFields(result, normalized, request);
+    } catch {
+      // Keep the entered address when either external lookup is unavailable.
+    } finally {
+      if (request === geocodeRequest.current) setGeocoding(false);
+    }
+  }
 
   function triggerGeocode(f: AddressFields) {
     if (geocodeTimer.current) clearTimeout(geocodeTimer.current);
     const addr = buildAddress(f);
     if (addr.length < 5) return;
     geocodeTimer.current = setTimeout(async () => {
-      setGeocoding(true);
-      const result = await geocodeAddress(addr);
-      if (result) setPin({ lat: result.lat, lng: result.lng });
-      setGeocoding(false);
+      await geocodeAndSetPin(addr);
     }, 700);
   }
 
@@ -220,12 +319,9 @@ export function CourtPicker({
       street: "",
       wardCode: null,
       wardName: "",
-      districtCode: null,
-      districtName: "",
       provinceCode: null,
       provinceName: "",
     });
-    setDistricts([]);
     setWards([]);
     setPin(null);
     setCreateError("");
@@ -245,6 +341,7 @@ export function CourtPicker({
   function openCreate() {
     setOpen(false);
     resetCreate();
+    if (provinces.length === 0) setLoadingProvinces(true);
     setCreateOpen(true);
   }
 
@@ -252,6 +349,22 @@ export function CourtPicker({
     const next = { ...fields, street: val };
     setFields(next);
     triggerGeocode(next);
+  }
+
+  function handleStreetPaste(event: React.ClipboardEvent<HTMLInputElement>) {
+    const pasted = event.clipboardData.getData("text").trim();
+    if (!pasted) return;
+
+    event.preventDefault();
+
+    const input = event.currentTarget;
+    const start = input.selectionStart ?? input.value.length;
+    const end = input.selectionEnd ?? input.value.length;
+    const nextStreet =
+      input.value.slice(0, start) + pasted + input.value.slice(end);
+
+    setFields((prev) => ({ ...prev, street: nextStreet }));
+    void geocodeAndSetPin(nextStreet);
   }
 
   const handlePinDrag = useCallback(async (lat: number, lng: number) => {
@@ -288,8 +401,8 @@ export function CourtPicker({
         longitude: court.longitude,
       });
       setCreateOpen(false);
-    } catch (e: any) {
-      setCreateError(e.message ?? "Có lỗi xảy ra");
+    } catch (error) {
+      setCreateError(error instanceof Error ? error.message : "Có lỗi xảy ra");
     }
   }
 
@@ -417,32 +530,20 @@ export function CourtPicker({
               value={fields.provinceCode}
               options={provinces}
               loading={loadingProvinces}
+              searchable
               onChange={handleProvinceChange}
-            />
-
-            {/* District */}
-            <SelectField
-              label="Quận / Huyện"
-              placeholder={
-                fields.provinceCode ? "Chọn quận / huyện" : "Chọn tỉnh trước"
-              }
-              value={fields.districtCode}
-              options={districts}
-              loading={loadingDistricts}
-              disabled={!fields.provinceCode}
-              onChange={handleDistrictChange}
             />
 
             {/* Ward */}
             <SelectField
               label="Phường / Xã"
               placeholder={
-                fields.districtCode ? "Chọn phường / xã" : "Chọn quận trước"
+                fields.provinceCode ? "Chọn phường / xã" : "Chọn tỉnh trước"
               }
               value={fields.wardCode}
               options={wards}
               loading={loadingWards}
-              disabled={!fields.districtCode}
+              disabled={!fields.provinceCode}
               onChange={handleWardChange}
             />
 
@@ -455,6 +556,7 @@ export function CourtPicker({
                 type="text"
                 value={fields.street}
                 onChange={(e) => handleStreetChange(e.target.value)}
+                onPaste={handleStreetPaste}
                 placeholder="VD: 123 Nguyễn Trãi"
                 className="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-xl text-sm focus:outline-none focus:border-[#0052CC] focus:ring-2 focus:ring-[#0052CC]/20"
               />

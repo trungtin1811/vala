@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
+import { getErrorMessage, useToast } from '@/context/ToastContext'
 import type { Event, EventStatus, SkillLevel } from '@/types'
 
 interface EventFilters {
@@ -41,9 +42,14 @@ export function useMyEvents(userId: string | undefined) {
 
 export function useDeleteEvent() {
   const qc = useQueryClient()
+  const toast = useToast()
   return useMutation({
     mutationFn: (id: string) =>
       apiFetch<void>(`/api/events/${id}`, { method: 'DELETE' }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['events'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['events'] })
+      toast.success('Đã xoá vãng lai.')
+    },
+    onError: error => toast.error(getErrorMessage(error, 'Không thể xoá vãng lai.')),
   })
 }

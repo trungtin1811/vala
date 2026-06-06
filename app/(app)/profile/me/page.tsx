@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { SkillLevelBadge } from "@/components/shared/SkillLevelBadge";
 import { SKILL_LEVELS, SKILL_LEVEL_LABELS, type SkillLevel } from "@/types";
 import { useQueryClient } from "@tanstack/react-query";
+import { getErrorMessage, useToast } from "@/context/ToastContext";
 
 const SKILL_LEVEL_OPTIONS = [
   { value: "none", label: "Chưa chọn" },
@@ -24,6 +25,7 @@ export default function MyProfilePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const qc = useQueryClient();
+  const toast = useToast();
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [form, setForm] = useState({
@@ -35,6 +37,8 @@ export default function MyProfilePage() {
 
   useEffect(() => {
     if (user) {
+      // Form state intentionally follows the asynchronously loaded current user.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setForm({
         display_name: user.display_name ?? "",
         phone: user.phone ?? "",
@@ -53,20 +57,26 @@ export default function MyProfilePage() {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    await apiFetch("/api/me", {
-      method: "PATCH",
-      body: JSON.stringify({
-        display_name: form.display_name,
-        phone: form.phone || null,
-        bio: form.bio || null,
-        skill_level: (form.skill_level as SkillLevel) || null,
-      }),
-    });
-    qc.invalidateQueries({ queryKey: ["user", user!.id] });
-    qc.invalidateQueries({ queryKey: ["me"] });
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    try {
+      await apiFetch("/api/me", {
+        method: "PATCH",
+        body: JSON.stringify({
+          display_name: form.display_name,
+          phone: form.phone || null,
+          bio: form.bio || null,
+          skill_level: (form.skill_level as SkillLevel) || null,
+        }),
+      });
+      qc.invalidateQueries({ queryKey: ["user", user!.id] });
+      qc.invalidateQueries({ queryKey: ["me"] });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+      toast.success("Cập nhật hồ sơ thành công.");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Không thể cập nhật hồ sơ."));
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (

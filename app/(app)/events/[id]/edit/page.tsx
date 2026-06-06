@@ -8,6 +8,7 @@ import { useEvent } from "@/hooks/useEvents";
 import { useAuth } from "@/context/AuthContext";
 import { EventForm, type EventFormValues } from "@/components/shared/EventForm";
 import { apiFetch } from "@/lib/api";
+import { getErrorMessage, useToast } from "@/context/ToastContext";
 
 export default function EditEventPage({
   params,
@@ -17,6 +18,7 @@ export default function EditEventPage({
   const { id } = use(params);
   const { user } = useAuth();
   const router = useRouter();
+  const toast = useToast();
   const { data: event, isLoading } = useEvent(id);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,9 +59,12 @@ export default function EditEventPage({
         method: "PATCH",
         body: JSON.stringify(values),
       });
+      toast.success("Đã lưu thay đổi.");
       router.push(`/events/${id}`);
-    } catch (e: any) {
-      setError(e.message ?? "Có lỗi xảy ra");
+    } catch (error) {
+      const message = getErrorMessage(error, "Không thể lưu thay đổi.");
+      setError(message);
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }

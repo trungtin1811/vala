@@ -8,9 +8,11 @@ import { LoginModal } from "@/components/ui/LoginModal";
 import { useEffect, useRef, useState } from "react";
 import { Menu, X, Feather, Plus, UserRound, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getErrorMessage, useToast } from "@/context/ToastContext";
 
 export function Navbar() {
   const { user, loading, signOut } = useAuth();
+  const toast = useToast();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
@@ -41,6 +43,15 @@ export function Navbar() {
     { href: "/events", label: "Tìm Vãng Lai" },
     ...(user ? [{ href: "/dashboard", label: "Của Tôi" }] : []),
   ];
+
+  async function handleSignOut() {
+    try {
+      await signOut();
+      toast.success("Đăng xuất thành công.");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Không thể đăng xuất."));
+    }
+  }
 
   return (
     <>
@@ -127,7 +138,7 @@ export function Navbar() {
                     <button
                       onClick={() => {
                         setProfileMenuOpen(false);
-                        signOut();
+                        void handleSignOut();
                       }}
                       className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium text-[#EF4444] hover:bg-[#FEF2F2]"
                     >
@@ -182,7 +193,7 @@ export function Navbar() {
                 </Link>
                 <Button
                   variant="ghost"
-                  onClick={signOut}
+                  onClick={() => void handleSignOut()}
                   className="w-full text-[#EF4444] hover:bg-red-50"
                 >
                   Đăng Xuất

@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/lib/api'
 import { useAuth } from '@/context/AuthContext'
+import { getErrorMessage, useToast } from '@/context/ToastContext'
 import type { Court } from '@/types'
 
 export function useCourts() {
@@ -17,6 +18,7 @@ export function useCourts() {
 
 export function useCreateCourt() {
   const { user } = useAuth()
+  const toast = useToast()
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -27,6 +29,8 @@ export function useCreateCourt() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courts', user?.id] })
+      toast.success('Tạo sân thành công.')
     },
+    onError: error => toast.error(getErrorMessage(error, 'Không thể tạo sân.')),
   })
 }

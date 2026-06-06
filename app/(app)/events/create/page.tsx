@@ -8,10 +8,12 @@ import { useState } from "react";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { getErrorMessage, useToast } from "@/context/ToastContext";
 
 export default function CreateEventPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const toast = useToast();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,9 +44,14 @@ export default function CreateEventPage() {
         body: JSON.stringify(values),
       });
 
+      toast.success(
+        count > 1 ? `Đã tạo ${count} vãng lai.` : "Tạo vãng lai thành công.",
+      );
       router.push(count > 1 ? "/dashboard" : `/events/${firstEventId}`);
-    } catch (e: any) {
-      setError(e.message ?? "Có lỗi xảy ra");
+    } catch (error) {
+      const message = getErrorMessage(error, "Không thể tạo vãng lai.");
+      setError(message);
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }

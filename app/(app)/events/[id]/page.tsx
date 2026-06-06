@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import DOMPurify from "dompurify";
-import { use, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
@@ -16,6 +16,8 @@ import {
   Users,
   Wallet,
   Pencil,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useEvent } from "@/hooks/useEvents";
 import {
@@ -38,6 +40,7 @@ import { formatDate } from "@/lib/utils";
 import { formatTimeRange } from "@/lib/eventTime";
 import { apiFetch } from "@/lib/api";
 import { type EventStatus, type SkillLevel } from "@/types";
+import { getErrorMessage, useToast } from "@/context/ToastContext";
 
 const CourtLocationWidget = dynamic(
   () => import("@/components/Map/CourtLocationWidget"),
@@ -53,6 +56,68 @@ const CourtLocationWidget = dynamic(
   },
 );
 
+const DESCRIPTION_COLLAPSED_HEIGHT = 288;
+const descriptionClassName =
+  "text-sm text-[#6B7280] [&_h1]:my-4 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:text-[#1F2937] [&_h2]:my-3 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-[#1F2937] [&_h3]:my-2 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-[#1F2937] [&_p]:my-1 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:my-0.5 [&_blockquote]:my-3 [&_blockquote]:border-l-4 [&_blockquote]:border-[#CBD5E1] [&_blockquote]:pl-4 [&_blockquote]:italic [&_a]:text-[#0052CC] [&_a]:underline [&_a]:underline-offset-2 [&_code]:rounded [&_code]:bg-[#F1F5F9] [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:bg-[#111827] [&_pre]:p-3 [&_pre]:text-[#F9FAFB] [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_hr]:my-4 [&_hr]:border-[#E5E7EB]";
+
+function CollapsibleDescription({ html }: { html: string }) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [canCollapse, setCanCollapse] = useState(false);
+
+  useEffect(() => {
+    const content = contentRef.current;
+    if (!content) return;
+
+    const measure = () => {
+      setCanCollapse(content.scrollHeight > DESCRIPTION_COLLAPSED_HEIGHT + 1);
+    };
+    const frame = requestAnimationFrame(measure);
+    const observer = new ResizeObserver(measure);
+    observer.observe(content);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [html]);
+
+  return (
+    <div>
+      <div className="relative">
+        <div
+          ref={contentRef}
+          className={`${descriptionClassName} ${
+            canCollapse && !expanded ? "max-h-72 overflow-hidden" : ""
+          }`}
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+        {canCollapse && !expanded && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-linear-to-t from-white to-transparent" />
+        )}
+      </div>
+
+      {canCollapse && (
+        <button
+          type="button"
+          onClick={() => setExpanded((current) => !current)}
+          className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-[#0052CC] hover:text-[#003D99] transition-colors"
+        >
+          {expanded ? (
+            <>
+              Thu gọn <ChevronUp size={15} />
+            </>
+          ) : (
+            <>
+              Xem thêm <ChevronDown size={15} />
+            </>
+          )}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function EventDetailPage({
   params,
 }: {
@@ -61,10 +126,11 @@ export default function EventDetailPage({
   const { id } = use(params);
   const router = useRouter();
   const qc = useQueryClient();
+  const toast = useToast();
   const { user } = useAuth();
   const { data: event, isLoading } = useEvent(id);
   const isHost = user?.id === event?.host_id;
-  const { data: bookings } = useEventBookings(id, isHost);
+  const { data: bookings } = useEventBookings(id, true, isHost);
   const { data: myBookings } = useMyBookings(user?.id);
   const bookMutation = useBook();
   const cancelBooking = useCancelBooking();
@@ -84,16 +150,21 @@ export default function EventDetailPage({
   const hasBooked = !!myBooking;
   const isApproved = myBooking?.approval_status === "approved";
   const isPendingApproval = myBooking?.approval_status === "pending";
+  const isPaid = myBooking?.is_paid ?? false;
 
   async function handleBook() {
     if (!user || !event || !selectedLevel) return;
-    await bookMutation.mutateAsync({
-      eventId: id,
-      memberId: user.id,
-      skillLevel: selectedLevel,
-    });
-    setBookingModal(false);
-    setBookedHostPhone(event.host?.phone ?? null);
+    try {
+      await bookMutation.mutateAsync({
+        eventId: id,
+        memberId: user.id,
+        skillLevel: selectedLevel,
+      });
+      setBookingModal(false);
+      setBookedHostPhone(event.host?.phone ?? null);
+    } catch {
+      // The booking mutation reports the error through the global toast.
+    }
   }
 
   async function updateStatus(status: EventStatus) {
@@ -105,6 +176,9 @@ export default function EventDetailPage({
       });
       qc.invalidateQueries({ queryKey: ["event", id] });
       qc.invalidateQueries({ queryKey: ["events"] });
+      toast.success("Cập nhật trạng thái vãng lai thành công.");
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Không thể cập nhật trạng thái."));
     } finally {
       setStatusLoading(false);
     }
@@ -229,7 +303,9 @@ export default function EventDetailPage({
                               {event.host.display_name}
                             </p>
                             <p className="text-sm text-[#374151]">
-                              {event.host.phone ?? "Chưa cập nhật SĐT"}
+                              {isHost
+                                ? (event.host.phone ?? "Chưa cập nhật SĐT")
+                                : "Thông tin liên hệ hiển thị sau khi được duyệt"}
                             </p>
                           </div>
                         </div>
@@ -252,33 +328,35 @@ export default function EventDetailPage({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 p-4 md:grid-cols-4">
-          <DetailStat
-            icon={<Clock size={16} />}
-            label="Thời gian"
-            value={formatTimeRange(
-              event.event_time,
-              event.event_end_time ?? null,
-              event.event_date,
-              event.event_end_date ?? null,
-            )}
-          />
-          <DetailStat
-            icon={<Users size={16} />}
-            label="Slot"
-            value={`${event.booked_slots}/${event.total_slots}`}
-          />
-          <DetailStat
-            icon={<Wallet size={16} />}
-            label="Đã thu tiền"
-            value={`${paidBookings.length}/${approvedBookings.length || 0}`}
-          />
-          <DetailStat
-            icon={<CalendarDays size={16} />}
-            label="Chờ duyệt"
-            value={pendingBookings.length}
-          />
-        </div>
+        {isHost && (
+          <div className="grid grid-cols-2 gap-3 p-4 md:grid-cols-4">
+            <DetailStat
+              icon={<Clock size={16} />}
+              label="Thời gian"
+              value={formatTimeRange(
+                event.event_time,
+                event.event_end_time ?? null,
+                event.event_date,
+                event.event_end_date ?? null,
+              )}
+            />
+            <DetailStat
+              icon={<Users size={16} />}
+              label="Slot"
+              value={`${event.booked_slots}/${event.total_slots}`}
+            />
+            <DetailStat
+              icon={<Wallet size={16} />}
+              label="Đã thu tiền"
+              value={`${paidBookings.length}/${approvedBookings.length || 0}`}
+            />
+            <DetailStat
+              icon={<CalendarDays size={16} />}
+              label="Chờ duyệt"
+              value={pendingBookings.length}
+            />
+          </div>
+        )}
       </div>
 
       {isHost && (
@@ -309,7 +387,8 @@ export default function EventDetailPage({
       )}
 
       <div className="mt-6 grid grid-cols-1 lg:grid-cols-10 gap-6">
-        <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-sm lg:col-span-6">
+        {isHost && (
+          <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-sm lg:col-span-6">
           <div className="flex items-center justify-between gap-4 mb-4">
             <div>
               <h2 className="text-base font-semibold text-[#1F2937]">
@@ -333,7 +412,6 @@ export default function EventDetailPage({
             </div>
           </div>
 
-          {isHost && (
             <div className="mb-4 flex w-full gap-1 overflow-x-auto rounded-2xl bg-[#F8FAFC] p-1 sm:w-fit">
               {memberTabs.map((tab) => (
                 <button
@@ -359,9 +437,8 @@ export default function EventDetailPage({
                 </button>
               ))}
             </div>
-          )}
 
-          {visibleBookings.length > 0 && (isHost || hasBooked) ? (
+          {visibleBookings.length > 0 ? (
             <div className="flex flex-col gap-3">
               {visibleBookings.map((booking) => (
                 <div
@@ -403,17 +480,15 @@ export default function EventDetailPage({
                           ? "Đã duyệt"
                           : "Chờ duyệt"}
                       </span>
-                      {isHost && (
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                            booking.is_paid
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-rose-100 text-rose-700"
-                          }`}
-                        >
-                          {booking.is_paid ? "Đã đóng tiền" : "Chưa đóng tiền"}
-                        </span>
-                      )}
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                          booking.is_paid
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-rose-100 text-rose-700"
+                        }`}
+                      >
+                        {booking.is_paid ? "Đã đóng tiền" : "Chưa đóng tiền"}
+                      </span>
                     </div>
                     <p className="mt-1 text-xs text-[#94A3B8]">
                       Đăng ký ngày{" "}
@@ -423,8 +498,7 @@ export default function EventDetailPage({
                       })}
                     </p>
                   </div>
-                  {isHost && (
-                    <BookingActionsMenu
+                  <BookingActionsMenu
                       booking={booking}
                       disabled={
                         approveBooking.isPending ||
@@ -433,14 +507,14 @@ export default function EventDetailPage({
                         cancelBooking.isPending
                       }
                       onApprove={() =>
-                        approveBooking.mutate({
+                        approveBooking.mutateAsync({
                           bookingId: booking.id,
                           eventId: id,
                           skillLevel: booking.skill_level,
                         })
                       }
                       onReject={() =>
-                        rejectBooking.mutate({
+                        rejectBooking.mutateAsync({
                           bookingId: booking.id,
                           eventId: id,
                           skillLevel: booking.skill_level,
@@ -448,13 +522,13 @@ export default function EventDetailPage({
                         })
                       }
                       onTogglePaid={() =>
-                        togglePaid.mutate({
+                        togglePaid.mutateAsync({
                           bookingId: booking.id,
                           isPaid: booking.is_paid,
                         })
                       }
                       onRemove={() =>
-                        cancelBooking.mutate({
+                        cancelBooking.mutateAsync({
                           bookingId: booking.id,
                           eventId: id,
                           skillLevel: booking.skill_level,
@@ -462,7 +536,6 @@ export default function EventDetailPage({
                         })
                       }
                     />
-                  )}
                 </div>
               ))}
             </div>
@@ -471,9 +544,16 @@ export default function EventDetailPage({
               Waiting for more members to join...
             </div>
           )}
-        </div>
+          </div>
+        )}
 
-        <div className="lg:col-span-4 flex flex-col gap-5">
+        <div
+          className={
+            isHost
+              ? "lg:col-span-4 flex flex-col gap-5"
+              : "lg:col-span-10 grid grid-cols-1 gap-5 lg:grid-cols-2"
+          }
+        >
           <div className="bg-white border border-[#E5E7EB] rounded-2xl p-4 flex flex-col gap-5">
             <div className="flex items-start gap-3">
               <div className="w-9 h-9 rounded-xl bg-[#E8F3FF] flex items-center justify-center shrink-0">
@@ -500,10 +580,7 @@ export default function EventDetailPage({
                 <h3 className="text-sm font-semibold text-[#1F2937] mb-2">
                   Mô tả
                 </h3>
-                <div
-                  className="prose prose-sm max-w-none text-[#6B7280] prose-p:my-1"
-                  dangerouslySetInnerHTML={{ __html: sanitizedDescription }}
-                />
+                <CollapsibleDescription html={sanitizedDescription} />
               </div>
             )}
             {bookedHostPhone && (
@@ -530,14 +607,38 @@ export default function EventDetailPage({
                 </Button>
               )}
             {hasBooked && (
-              <div className="bg-[#E8F3FF] border border-[#0052CC]/20 rounded-xl p-4 text-center">
-                <p className="text-sm font-semibold text-[#0052CC]">
-                  {isPendingApproval
-                    ? "⌛ Yêu cầu tham gia đang chờ host duyệt"
-                    : "✓ Bạn đã được duyệt tham gia vãng lai này"}
+              <div className="rounded-2xl border border-[#D8E8FF] bg-[#F4F8FF] p-4">
+                <p className="text-sm font-semibold text-[#1F2937]">
+                  Trạng thái của bạn
                 </p>
+                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <PersonalStatus
+                    label="Đăng ký"
+                    value={isPendingApproval ? "Chờ host duyệt" : "Đã được duyệt"}
+                    positive={isApproved}
+                  />
+                  <PersonalStatus
+                    label="Thanh toán"
+                    value={
+                      isPendingApproval
+                        ? "Chờ được duyệt"
+                        : isPaid
+                          ? "Đã đóng tiền"
+                          : "Chưa đóng tiền"
+                    }
+                    positive={isApproved && isPaid}
+                  />
+                </div>
+                {myBooking && (
+                  <div className="mt-3 flex items-center justify-between gap-3 border-t border-[#D8E8FF] pt-3">
+                    <span className="text-xs font-medium text-[#64748B]">
+                      Trình độ đăng ký
+                    </span>
+                    <SkillLevelBadge level={myBooking.skill_level} />
+                  </div>
+                )}
                 {isApproved && event.host?.phone && (
-                  <p className="text-sm text-[#0052CC] mt-1">
+                  <p className="mt-3 text-sm text-[#0052CC]">
                     Liên hệ host: <strong>{event.host.phone}</strong>
                   </p>
                 )}
@@ -566,7 +667,7 @@ export default function EventDetailPage({
             <p className="text-base font-semibold leading-snug text-[#1F2937]">
               {event.title}
             </p>
-            <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-[#6B7280]">
+            <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-[#6B7280] sm:grid-cols-2">
               <div className="rounded-xl bg-white/80 px-3 py-2">
                 <p className="font-medium text-[#94A3B8]">Thời gian</p>
                 <p className="mt-0.5 font-semibold text-[#1F2937]">
@@ -579,9 +680,9 @@ export default function EventDetailPage({
                 </p>
               </div>
               <div className="rounded-xl bg-white/80 px-3 py-2">
-                <p className="font-medium text-[#94A3B8]">Còn trống</p>
+                <p className="font-medium text-[#94A3B8]">Địa điểm</p>
                 <p className="mt-0.5 font-semibold text-[#1F2937]">
-                  {availableSlots} chỗ
+                  {event.location}
                 </p>
               </div>
             </div>
@@ -664,6 +765,29 @@ function DetailStat({
       </div>
       <p className="text-xs font-medium text-[#6B7280]">{label}</p>
       <p className="mt-0.5 text-sm font-semibold text-[#1F2937]">{value}</p>
+    </div>
+  );
+}
+
+function PersonalStatus({
+  label,
+  value,
+  positive,
+}: {
+  label: string;
+  value: string;
+  positive: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-white bg-white/80 px-3 py-2.5">
+      <p className="text-xs font-medium text-[#64748B]">{label}</p>
+      <p
+        className={`mt-0.5 text-sm font-semibold ${
+          positive ? "text-emerald-700" : "text-amber-700"
+        }`}
+      >
+        {value}
+      </p>
     </div>
   );
 }
