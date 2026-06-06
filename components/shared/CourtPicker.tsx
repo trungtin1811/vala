@@ -52,9 +52,7 @@ interface AddressFields {
 }
 
 function buildAddress(f: AddressFields) {
-  return [f.street, f.wardName, f.provinceName]
-    .filter(Boolean)
-    .join(", ");
+  return [f.street, f.wardName, f.provinceName].filter(Boolean).join(", ");
 }
 
 const BASE = "https://provinces.open-api.vn/api/v2";
@@ -65,10 +63,7 @@ function normalizeAdministrativeName(value: string) {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/đ/g, "d")
-    .replace(
-      /^(thanh pho|tinh|quan|huyen|thi xa|thi tran|phuong|xa)\s+/,
-      "",
-    )
+    .replace(/^(thanh pho|tinh|quan|huyen|thi xa|thi tran|phuong|xa)\s+/, "")
     .replace(/\b(city|province|district|ward|town|commune)\b/g, "")
     .replace(/[^a-z0-9]/g, "");
 }
